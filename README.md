@@ -1,7 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # WikiAnalytics
 
 **WikiAnalytics** is a React-based web application designed to provide deep insights into Wikipedia editor habits. It fetches user contribution data from Wikipedia's public API, calculates detailed statistics (yearly/monthly performance, heatmap, activity rhythm), and uses **Google Gemini AI** to generate a qualitative profile of the editor.
@@ -44,7 +40,7 @@
     ```
 
 3.  **Environment Setup**
-    Create a `.env.local` file in the root directory and add your Gemini API key:
+    Create a `.env.local` file in the root directory and add your Gemini API key :
     ```env
     GEMINI_API_KEY=your_actual_api_key_here
     ```
