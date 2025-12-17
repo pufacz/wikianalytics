@@ -1,0 +1,186 @@
+:root {
+    --bg-main: #0f172a;
+    --bg-card: rgba(30, 41, 59, 0.4);
+    --bg-input: rgba(15, 23, 42, 0.5);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(51, 65, 85, 0.5);
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --glow-primary: rgba(59, 130, 246, 0.05);
+    --glow-secondary: rgba(168, 85, 247, 0.05);
+    --chart-grid: #334155;
+    --chart-tooltip-bg: #1e293b;
+    --chart-label: #94a3b8;
+}
+
+.theme-midnight {
+    --bg-main: #020617;
+    --bg-card: rgba(15, 23, 42, 0.6);
+    --bg-input: rgba(2, 6, 23, 0.6);
+    --text-primary: #f8fafc;
+    --text-secondary: #64748b;
+    --border-color: rgba(30, 41, 59, 0.8);
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --glow-primary: rgba(59, 130, 246, 0.08);
+    --glow-secondary: rgba(99, 102, 241, 0.08);
+    --chart-grid: #1e293b;
+    --chart-tooltip-bg: #0f172a;
+    --chart-label: #475569;
+}
+
+.theme-forest {
+    --bg-main: #061e14;
+    --bg-card: rgba(6, 78, 59, 0.2);
+    --bg-input: rgba(6, 30, 20, 0.6);
+    --text-primary: #ecfdf5;
+    --text-secondary: #6ee7b7;
+    --border-color: rgba(5, 150, 105, 0.3);
+    --accent-color: #10b981;
+    --accent-hover: #059669;
+    --glow-primary: rgba(16, 185, 129, 0.08);
+    --glow-secondary: rgba(5, 150, 105, 0.08);
+    --chart-grid: rgba(5, 150, 105, 0.2);
+    --chart-tooltip-bg: #061e14;
+    --chart-label: #059669;
+}
+
+.theme-crimson {
+    --bg-main: #1c0a0a;
+    --bg-card: rgba(127, 29, 29, 0.15);
+    --bg-input: rgba(28, 10, 10, 0.6);
+    --text-primary: #fef2f2;
+    --text-secondary: #f87171;
+    --border-color: rgba(185, 28, 28, 0.3);
+    --accent-color: #ef4444;
+    --accent-hover: #dc2626;
+    --glow-primary: rgba(239, 68, 68, 0.08);
+    --glow-secondary: rgba(185, 28, 28, 0.08);
+    --chart-grid: rgba(185, 28, 28, 0.2);
+    --chart-tooltip-bg: #1c0a0a;
+    --chart-label: #b91c1c;
+}
+
+.theme-nord {
+    --bg-main: #2e3440;
+    --bg-card: rgba(59, 66, 82, 0.5);
+    --bg-input: rgba(46, 52, 64, 0.7);
+    --text-primary: #eceff4;
+    --text-secondary: #d8dee9;
+    --border-color: rgba(76, 86, 106, 0.6);
+    --accent-color: #88c0d0;
+    --accent-hover: #81a1c1;
+    --glow-primary: rgba(136, 192, 208, 0.08);
+    --glow-secondary: rgba(129, 161, 193, 0.08);
+    --chart-grid: #434c5e;
+    --chart-tooltip-bg: #3b4252;
+    --chart-label: #d8dee9;
+}
+
+.theme-light {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-input: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: #e2e8f0;
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --glow-primary: rgba(59, 130, 246, 0.04);
+    --glow-secondary: rgba(147, 197, 253, 0.04);
+    --chart-grid: #e2e8f0;
+    --chart-tooltip-bg: #ffffff;
+    --chart-label: #64748b;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Override Tailwind utilities to use variables */
+.bg-slate-900 {
+    background-color: var(--bg-main) !important;
+}
+
+.bg-slate-800\/40,
+.bg-slate-800\/50 {
+    background-color: var(--bg-card) !important;
+}
+
+.bg-slate-900\/50,
+.bg-slate-900\/60 {
+    background-color: var(--bg-input) !important;
+}
+
+.text-slate-200,
+.text-slate-300 {
+    color: var(--text-primary) !important;
+}
+
+.text-slate-400,
+.text-slate-500 {
+    color: var(--text-secondary) !important;
+}
+
+.border-slate-700\/50,
+.border-slate-700\/60,
+.border-slate-800,
+.border-slate-700,
+.border-slate-600 {
+    border-color: var(--border-color) !important;
+}
+
+.bg-blue-600 {
+    background-color: var(--accent-color) !important;
+}
+
+.hover\:bg-blue-700:hover {
+    background-color: var(--accent-hover) !important;
+}
+
+.from-slate-800 {
+    --tw-gradient-from: var(--bg-card) !important;
+}
+
+.to-slate-900 {
+    --tw-gradient-to: var(--bg-main) !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

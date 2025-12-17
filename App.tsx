@@ -1,5 +1,5 @@
 import React, { useState, FormEvent, useMemo, useEffect } from 'react';
-import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight } from 'lucide-react';
+import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchWikiUser, fetchUserContributions, processStatistics } from './services/wikipedia';
 import { getNamespaceLabel, WikiContrib, WikiUser } from './types';
 import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart } from './components/DashboardCharts';
@@ -21,10 +21,11 @@ const InfoTooltip = ({ text }: { text: string }) => (
 );
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'compare'>('dashboard');
-
   // Initialize state from URL
   const query = new URLSearchParams(window.location.search);
+
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'compare'>('dashboard');
+  const [theme, setTheme] = useState(query.get('theme') || 'midnight');
 
   const [username, setUsername] = useState(query.get('user') || '');
   const [lang, setLang] = useState(query.get('lang') || 'pl');
@@ -144,6 +145,18 @@ export function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePrevDate = () => {
+    const d = new Date(analysisDate);
+    d.setDate(d.getDate() - 1);
+    setAnalysisDate(d.toISOString().split('T')[0]);
+  };
+
+  const handleNextDate = () => {
+    const d = new Date(analysisDate);
+    d.setDate(d.getDate() + 1);
+    setAnalysisDate(d.toISOString().split('T')[0]);
   };
 
   const handleSearch = (e: FormEvent) => {
@@ -446,11 +459,17 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 selection:bg-blue-500/30 pb-20 font-sans">
+    <div className={`min-h-screen theme-${theme} bg-slate-900 text-slate-200 selection:bg-blue-500/30 pb-20 font-sans transition-colors duration-300`}>
       {/* Background ambient glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-purple-500/5 rounded-full blur-3xl"></div>
+        <div
+          className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-3xl transition-colors duration-1000"
+          style={{ backgroundColor: 'var(--glow-primary)' }}
+        ></div>
+        <div
+          className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full blur-3xl transition-colors duration-1000"
+          style={{ backgroundColor: 'var(--glow-secondary)' }}
+        ></div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10 space-y-6">
@@ -464,28 +483,50 @@ export function App() {
             <p className="text-slate-400 text-sm mt-1">Deep dive into Wikipedia editor habits</p>
           </div>
 
-          {/* Tab Switcher */}
-          <div className="flex bg-slate-900/50 backdrop-blur rounded-xl p-1.5 border border-slate-800 shadow-lg">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'dashboard'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Live Analysis
-            </button>
-            <button
-              onClick={() => setActiveTab('compare')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'compare'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`}
-            >
-              <GitCompare className="w-4 h-4" />
-              Compare Reports
-            </button>
+          {/* Theme & Tab Switcher */}
+          <div className="flex flex-col md:flex-row gap-4 items-end md:items-center">
+            {/* Theme Selector */}
+            <div className="flex bg-slate-900/50 backdrop-blur rounded-xl p-1 border border-slate-800 shadow-lg">
+              {[
+                { id: 'midnight', icon: '🌑', label: 'Midnight' },
+                { id: 'forest', icon: '🌲', label: 'Forest' },
+                { id: 'crimson', icon: '🌹', label: 'Crimson' },
+                { id: 'nord', icon: '❄️', label: 'Nord' },
+                { id: 'light', icon: '☀️', label: 'Light' }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  title={t.label}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${theme === t.id ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+                >
+                  <span className="text-sm">{t.icon}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex bg-slate-900/50 backdrop-blur rounded-xl p-1.5 border border-slate-800 shadow-lg">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'dashboard'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Live Analysis
+              </button>
+              <button
+                onClick={() => setActiveTab('compare')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'compare'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+              >
+                <GitCompare className="w-4 h-4" />
+                Compare Reports
+              </button>
+            </div>
           </div>
         </header>
 
@@ -581,15 +622,31 @@ export function App() {
                   </div>
 
                   {/* Reference Date */}
-                  <div className="md:col-span-3 relative">
-                    <span className="absolute left-3 top-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Analysis Ref Date</span>
-                    <input
-                      type="date"
-                      value={analysisDate}
-                      onChange={(e) => setAnalysisDate(e.target.value)}
-                      className="w-full pl-3 pt-5 pb-1.5 pr-8 bg-slate-900/50 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:outline-none text-sm text-slate-200 transition-all"
-                    />
-                    <div className="absolute right-2 top-4">
+                  <div className="md:col-span-3 relative group">
+                    <span className="absolute left-3 top-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wider z-10">Analysis Ref Date</span>
+                    <div className="flex items-center bg-slate-900/50 border border-slate-700 rounded-xl transition-all focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={handlePrevDate}
+                        className="pl-3 pr-1 py-1.5 text-slate-500 hover:text-blue-400 transition-colors mt-2"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <input
+                        type="date"
+                        value={analysisDate}
+                        onChange={(e) => setAnalysisDate(e.target.value)}
+                        className="flex-grow pt-5 pb-1.5 px-1 bg-transparent border-none focus:ring-0 text-sm text-slate-200 transition-all text-center"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleNextDate}
+                        className="pr-3 pl-1 py-1.5 text-slate-500 hover:text-blue-400 transition-colors mt-2"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="absolute right-[-24px] top-4">
                       <InfoTooltip text="Simulation Date: Statistics and projections will be calculated as if today were this date." />
                     </div>
                   </div>

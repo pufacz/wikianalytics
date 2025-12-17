@@ -42,8 +42,8 @@ export const NamespaceChart: React.FC<{ stats: UserStatistics }> = ({ stats }) =
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f1f5f9' }}
-            itemStyle={{ color: '#f1f5f9' }}
+            contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
+            itemStyle={{ color: 'var(--text-primary)' }}
           />
           <Legend />
         </PieChart>
@@ -62,17 +62,17 @@ export const HourlyActivityChart: React.FC<{ stats: UserStatistics, referenceDat
           data={stats.hourlyStats}
           margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="key"
-            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tick={{ fill: 'var(--chart-label)', fontSize: 12 }}
             interval={3}
             tickFormatter={(val) => `${val}:00`}
           />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+          <YAxis tick={{ fill: 'var(--chart-label)', fontSize: 12 }} />
           <Tooltip
-            cursor={{ fill: '#334155', opacity: 0.4 }}
-            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f1f5f9' }}
+            cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
+            contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
           />
           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
             {stats.hourlyStats.map((entry, index) => (
@@ -98,16 +98,16 @@ export const WeeklyActivityChart: React.FC<{ stats: UserStatistics, referenceDat
           data={stats.dayOfWeekStats}
           margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tick={{ fill: 'var(--chart-label)', fontSize: 12 }}
             tickFormatter={(val) => val.substring(0, 3)}
           />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+          <YAxis tick={{ fill: 'var(--chart-label)', fontSize: 12 }} />
           <Tooltip
-            cursor={{ fill: '#334155', opacity: 0.4 }}
-            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f1f5f9' }}
+            cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
+            contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
           />
           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
             {stats.dayOfWeekStats.map((entry, index) => (
@@ -133,16 +133,16 @@ export const DayOfMonthChart: React.FC<{ stats: UserStatistics, referenceDate: D
           data={stats.dayOfMonthStats}
           margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="key"
-            tick={{ fill: '#94a3b8', fontSize: 10 }}
+            tick={{ fill: 'var(--chart-label)', fontSize: 10 }}
             interval={2}
           />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+          <YAxis tick={{ fill: 'var(--chart-label)', fontSize: 12 }} />
           <Tooltip
-            cursor={{ fill: '#334155', opacity: 0.4 }}
-            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f1f5f9' }}
+            cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
+            contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
           />
           <Bar dataKey="count" radius={[2, 2, 0, 0]}>
             {stats.dayOfMonthStats.map((entry, index) => (
@@ -168,16 +168,16 @@ export const CurrentMonthDailyChart: React.FC<{ stats: UserStatistics, reference
           data={stats.currentMonthDailyStats}
           margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="key"
-            tick={{ fill: '#94a3b8', fontSize: 10 }}
+            tick={{ fill: 'var(--chart-label)', fontSize: 10 }}
             interval={2}
           />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+          <YAxis tick={{ fill: 'var(--chart-label)', fontSize: 12 }} />
           <Tooltip
-            cursor={{ fill: '#334155', opacity: 0.4 }}
-            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f1f5f9' }}
+            cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
+            contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
             labelFormatter={(label) => `${stats.currentMonthName} ${label}`}
           />
           <Bar dataKey="count" radius={[2, 2, 0, 0]}>
@@ -203,15 +203,16 @@ export const ActivityHeatmap: React.FC<{ stats: UserStatistics, referenceDate: D
   const currentLocalHour = referenceDate.getHours();
 
   const getColor = (count: number) => {
-    if (count === 0) return 'bg-slate-800';
+    if (count === 0) return 'opacity-20 bg-slate-800';
     const intensity = Math.ceil((count / maxCount) * 10); // 1-10 scale
     // Tail wind shades from blue-900 to blue-300
-    const colors = [
-      'bg-blue-900/40', 'bg-blue-900/60', 'bg-blue-800/60', 'bg-blue-800',
-      'bg-blue-700', 'bg-blue-600', 'bg-blue-500', 'bg-blue-400',
-      'bg-blue-300', 'bg-blue-200'
+    // Using a more generic approach that works with themes
+    const opacities = [
+      'opacity-10', 'opacity-20', 'opacity-30', 'opacity-40',
+      'opacity-50', 'opacity-60', 'opacity-70', 'opacity-80',
+      'opacity-90', 'opacity-100'
     ];
-    return colors[Math.min(intensity, 9)];
+    return `bg-blue-500 ${opacities[Math.min(intensity, 9)]}`;
   };
 
   return (
@@ -288,12 +289,12 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
         <div className="flex-grow h-full pt-2 pb-1">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dayStats}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
               <Bar dataKey="count" radius={[2, 2, 0, 0]}>
                 {dayStats.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={entry.key === currentLocalHour ? '#f97316' : '#3b82f6'} // Orange for current hour, Blue for others
+                    fill={entry.key === currentLocalHour ? '#f97316' : 'var(--accent-color)'} // Orange for current hour, Theme accent for others
                   />
                 ))}
               </Bar>
@@ -302,9 +303,9 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
                 content={({ active, payload, label }) => {
                   if (active && payload && payload.length) {
                     return (
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 shadow-xl">
-                        <div className="font-semibold text-slate-400 mb-1">{dayName} @ {label}:00</div>
-                        <div>{payload[0].value} edits</div>
+                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
+                        <div className="font-semibold text-slate-400 mb-1" style={{ color: 'var(--text-secondary)' }}>{dayName} @ {label}:00</div>
+                        <div style={{ color: 'var(--text-primary)' }}>{payload[0].value} edits</div>
                         {label === currentLocalHour && (
                           <div className="text-orange-400 text-[10px] mt-1 font-medium">Current Hour</div>
                         )}
@@ -316,11 +317,11 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
               />
               <XAxis
                 dataKey="key"
-                tick={{ fill: '#94a3b8', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-label)', fontSize: 10 }}
                 interval={2}
                 tickFormatter={(val) => `${val}:00`}
               />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} width={30} />
+              <YAxis tick={{ fill: 'var(--chart-label)', fontSize: 10 }} width={30} />
             </BarChart>
           </ResponsiveContainer>
         </div>
