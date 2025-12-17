@@ -443,7 +443,7 @@ export function App() {
   const getCardStyle = (isPositive: boolean, isProjectedUnder: boolean) => {
     if (isPositive) return 'bg-emerald-900/10 border-emerald-500/30';
     if (isProjectedUnder) return 'bg-rose-900/10 border-rose-500/30';
-    return 'bg-slate-800/50 border-slate-700/50';
+    return '';
   };
 
   const getIconColor = (isPositive: boolean, isProjectedUnder: boolean, defaultColor: string) => {
@@ -459,7 +459,10 @@ export function App() {
   };
 
   return (
-    <div className={`min-h-screen theme-${theme} bg-slate-900 text-slate-200 selection:bg-blue-500/30 pb-20 font-sans transition-colors duration-300`}>
+    <div
+      className={`min-h-screen theme-${theme} font-sans transition-colors duration-300`}
+      style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
+    >
       {/* Background ambient glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div
@@ -486,7 +489,10 @@ export function App() {
           {/* Theme & Tab Switcher */}
           <div className="flex flex-col md:flex-row gap-4 items-end md:items-center">
             {/* Theme Selector */}
-            <div className="flex bg-slate-900/50 backdrop-blur rounded-xl p-1 border border-slate-800 shadow-lg">
+            <div
+              className="flex items-center gap-1 p-1 rounded-xl border shadow-lg backdrop-blur"
+              style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}
+            >
               {[
                 { id: 'midnight', icon: '🌑', label: 'Midnight' },
                 { id: 'forest', icon: '🌲', label: 'Forest' },
@@ -498,12 +504,15 @@ export function App() {
                   key={t.id}
                   onClick={() => setTheme(t.id)}
                   title={t.label}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${theme === t.id ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${theme === t.id ? 'text-white shadow-md scale-110' : 'hover:bg-white/10'}`}
+                  style={{ backgroundColor: theme === t.id ? 'var(--accent-color)' : 'transparent', color: theme === t.id ? '#ffffff' : 'var(--text-secondary)' }}
                 >
                   <span className="text-sm">{t.icon}</span>
                 </button>
               ))}
             </div>
+
+            {/* Tab Switcher */}
 
             <div className="flex bg-slate-900/50 backdrop-blur rounded-xl p-1.5 border border-slate-800 shadow-lg">
               <button
@@ -546,7 +555,10 @@ export function App() {
             />
 
             {/* Search Control Panel */}
-            <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/60 rounded-2xl p-5 shadow-xl transition-all hover:border-slate-600/50">
+            <div
+              className="backdrop-blur-md border rounded-2xl p-5 shadow-xl transition-all"
+              style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+            >
               <form onSubmit={handleSmartAnalyze} className="space-y-4">
 
                 {/* Top Row: User Definition */}
@@ -558,7 +570,13 @@ export function App() {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Enter Username..."
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:outline-none text-sm placeholder-slate-500 transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:ring-2 focus:outline-none text-sm transition-all"
+                      style={{
+                        backgroundColor: 'var(--bg-input)',
+                        borderColor: 'var(--border-color)',
+                        color: 'var(--text-primary)',
+                        '--tw-ring-color': 'var(--accent-color)'
+                      } as React.CSSProperties}
                     />
                   </div>
 
@@ -646,9 +664,7 @@ export function App() {
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="absolute right-[-24px] top-4">
-                      <InfoTooltip text="Simulation Date: Statistics and projections will be calculated as if today were this date." />
-                    </div>
+
                   </div>
 
                   {/* Actions */}
@@ -711,7 +727,10 @@ export function App() {
                   {/* ROW 1: General Stats & Created Articles */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Total Edits Card */}
-                    <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl relative overflow-hidden group">
+                    <div
+                      className="backdrop-blur border p-6 rounded-2xl relative overflow-hidden group"
+                      style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+                    >
                       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -translate-y-10 translate-x-10 group-hover:bg-blue-500/10 transition-all duration-500"></div>
                       <div className="flex items-center justify-between gap-3 mb-2 text-slate-400 text-sm font-medium relative z-10">
                         <div className="flex items-center gap-2">

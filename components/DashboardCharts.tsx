@@ -203,16 +203,14 @@ export const ActivityHeatmap: React.FC<{ stats: UserStatistics, referenceDate: D
   const currentLocalHour = referenceDate.getHours();
 
   const getColor = (count: number) => {
-    if (count === 0) return 'opacity-20 bg-slate-800';
+    if (count === 0) return { backgroundColor: 'var(--chart-empty-cell)', opacity: 1 };
     const intensity = Math.ceil((count / maxCount) * 10); // 1-10 scale
-    // Tail wind shades from blue-900 to blue-300
-    // Using a more generic approach that works with themes
-    const opacities = [
-      'opacity-10', 'opacity-20', 'opacity-30', 'opacity-40',
-      'opacity-50', 'opacity-60', 'opacity-70', 'opacity-80',
-      'opacity-90', 'opacity-100'
-    ];
-    return `bg-blue-500 ${opacities[Math.min(intensity, 9)]}`;
+    // Use the theme's accent color with varying opacity
+    // Start from 0.4 opacity so even 1 edit is visible
+    return {
+      backgroundColor: 'var(--accent-color)',
+      opacity: 0.3 + (Math.min(intensity, 10) / 10) * 0.7
+    };
   };
 
   return (
@@ -222,14 +220,14 @@ export const ActivityHeatmap: React.FC<{ stats: UserStatistics, referenceDate: D
         <div className="flex">
           <div className="w-12 flex-shrink-0"></div>
           {hours.map(h => (
-            <div key={h} className="flex-1 text-center text-slate-500 mb-1">{h}</div>
+            <div key={h} className="flex-1 text-center mb-1" style={{ color: 'var(--text-secondary)' }}>{h}</div>
           ))}
         </div>
 
         {/* Rows (Days) */}
         {days.map((day, dIndex) => (
           <div key={day} className="flex items-center mb-1">
-            <div className="w-12 text-slate-400 font-medium flex-shrink-0">{day}</div>
+            <div className="w-12 font-medium flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{day}</div>
             {hours.map(hour => {
               const stat = stats.weekdayHourStats.find(s => s.weekday === dIndex && s.hour === hour);
               const count = stat ? stat.count : 0;
@@ -238,9 +236,13 @@ export const ActivityHeatmap: React.FC<{ stats: UserStatistics, referenceDate: D
               return (
                 <div
                   key={`${day}-${hour}`}
-                  className={`flex-1 aspect-square mx-[1px] rounded-sm ${getColor(count)} relative group box-border ${isCurrent ? 'border-2 border-orange-500 z-10' : ''}`}
+                  className={`flex-1 aspect-square mx-[1px] rounded-sm relative group box-border transition-all duration-300 ${isCurrent ? 'z-10 ring-2 ring-orange-500' : ''}`}
+                  style={getColor(count)}
                 >
-                  <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none mb-1 border border-slate-700">
+                  <div
+                    className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 text-[10px] px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none mb-1 border shadow-xl"
+                    style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                  >
                     {count} edits
                   </div>
                 </div>
@@ -249,13 +251,14 @@ export const ActivityHeatmap: React.FC<{ stats: UserStatistics, referenceDate: D
           </div>
         ))}
       </div>
-      <div className="flex justify-end items-center gap-2 mt-2 text-[10px] text-slate-500">
+      <div className="flex justify-end items-center gap-2 mt-2 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
         <span>Less</span>
         <div className="flex gap-1">
-          <div className="w-3 h-3 bg-slate-800 rounded-sm"></div>
-          <div className="w-3 h-3 bg-blue-900/60 rounded-sm"></div>
-          <div className="w-3 h-3 bg-blue-700 rounded-sm"></div>
-          <div className="w-3 h-3 bg-blue-400 rounded-sm"></div>
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--chart-empty-cell)' }}></div>
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--accent-color)', opacity: 0.3 }}></div>
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--accent-color)', opacity: 0.5 }}></div>
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--accent-color)', opacity: 0.7 }}></div>
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--accent-color)', opacity: 1 }}></div>
         </div>
         <span>More</span>
       </div>
@@ -277,12 +280,15 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
 
   return (
     <div className="w-full">
-      <div className="flex items-center h-48 w-full bg-slate-900/30 rounded-xl p-4 border border-slate-700/50">
+      <div
+        className="flex items-center h-48 w-full rounded-xl p-4 border"
+        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+      >
         {/* Label */}
-        <div className="w-32 flex flex-col justify-center border-r border-slate-700/50 pr-4 mr-4">
-          <div className="text-sm text-slate-400 font-medium">Activity on</div>
+        <div className="w-32 flex flex-col justify-center border-r pr-4 mr-4" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Activity on</div>
           <div className="text-xl font-bold text-orange-400">{dayName}s</div>
-          <div className="text-xs text-slate-500 mt-1">Based on local time</div>
+          <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Based on local time</div>
         </div>
 
         {/* Chart */}
@@ -299,12 +305,12 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
                 ))}
               </Bar>
               <Tooltip
-                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                cursor={{ fill: 'var(--chart-grid)', opacity: 0.2 }}
                 content={({ active, payload, label }) => {
                   if (active && payload && payload.length) {
                     return (
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
-                        <div className="font-semibold text-slate-400 mb-1" style={{ color: 'var(--text-secondary)' }}>{dayName} @ {label}:00</div>
+                      <div className="border rounded-lg p-2 text-xs shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
+                        <div className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>{dayName} @ {label}:00</div>
                         <div style={{ color: 'var(--text-primary)' }}>{payload[0].value} edits</div>
                         {label === currentLocalHour && (
                           <div className="text-orange-400 text-[10px] mt-1 font-medium">Current Hour</div>

@@ -1,17 +1,18 @@
 :root {
-    --bg-main: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.4);
-    --bg-input: rgba(15, 23, 42, 0.5);
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --border-color: rgba(51, 65, 85, 0.5);
+    --bg-main: #020617;
+    --bg-card: rgba(15, 23, 42, 0.6);
+    --bg-input: rgba(2, 6, 23, 0.6);
+    --text-primary: #f8fafc;
+    --text-secondary: #64748b;
+    --border-color: rgba(30, 41, 59, 0.8);
     --accent-color: #3b82f6;
     --accent-hover: #2563eb;
-    --glow-primary: rgba(59, 130, 246, 0.05);
-    --glow-secondary: rgba(168, 85, 247, 0.05);
-    --chart-grid: #334155;
-    --chart-tooltip-bg: #1e293b;
-    --chart-label: #94a3b8;
+    --glow-primary: rgba(59, 130, 246, 0.08);
+    --glow-secondary: rgba(99, 102, 241, 0.08);
+    --chart-grid: #1e293b;
+    --chart-tooltip-bg: #0f172a;
+    --chart-label: #475569;
+    --chart-empty-cell: rgba(255, 255, 255, 0.03);
 }
 
 .theme-midnight {
@@ -28,6 +29,7 @@
     --chart-grid: #1e293b;
     --chart-tooltip-bg: #0f172a;
     --chart-label: #475569;
+    --chart-empty-cell: rgba(255, 255, 255, 0.03);
 }
 
 .theme-forest {
@@ -44,6 +46,7 @@
     --chart-grid: rgba(5, 150, 105, 0.2);
     --chart-tooltip-bg: #061e14;
     --chart-label: #059669;
+    --chart-empty-cell: rgba(255, 255, 255, 0.05);
 }
 
 .theme-crimson {
@@ -60,6 +63,7 @@
     --chart-grid: rgba(185, 28, 28, 0.2);
     --chart-tooltip-bg: #1c0a0a;
     --chart-label: #b91c1c;
+    --chart-empty-cell: rgba(255, 255, 255, 0.05);
 }
 
 .theme-nord {
@@ -76,6 +80,7 @@
     --chart-grid: #434c5e;
     --chart-tooltip-bg: #3b4252;
     --chart-label: #d8dee9;
+    --chart-empty-cell: rgba(255, 255, 255, 0.05);
 }
 
 .theme-light {
@@ -92,6 +97,7 @@
     --chart-grid: #e2e8f0;
     --chart-tooltip-bg: #ffffff;
     --chart-label: #64748b;
+    --chart-empty-cell: rgba(0, 0, 0, 0.05);
 }
 
 body {
