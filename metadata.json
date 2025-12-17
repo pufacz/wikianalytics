@@ -1,0 +1,5 @@
+{
+  "name": "WikiAnalytics",
+  "description": "A comprehensive dashboard for analyzing Wikipedia user activity, featuring editing patterns, namespace breakdown, and AI-powered insights.",
+  "requestFramePermissions": []
+}
