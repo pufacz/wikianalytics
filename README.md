@@ -53,7 +53,7 @@
 
 ## Architecture
 
--   **`App.tsx`**: Main controller handling state, routing, and data flow.
+-   **`App.tsx`**: Main controller handling state, routing and data flow.
 -   **`services/wikipedia.ts`**: Core logic for fetching API data and calculating statistics.
 -   **`services/geminiService.ts`**: Handles interaction with the Google Gemini API for profile generation.
 -   **`components/`**: UI components including charts and analysis views.
