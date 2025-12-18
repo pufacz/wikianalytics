@@ -430,6 +430,30 @@ export function App() {
     };
   }, [stats, analysisDate]);
 
+  const handleCardClick = (type: 'year' | 'month' | 'day') => {
+    if (!username) return;
+
+    const [y, m, d] = analysisDate.split('-').map(Number);
+    let start = '';
+    let end = '';
+
+    if (type === 'year') {
+      start = `${y}-01-01`;
+      end = `${y}-12-31`;
+    } else if (type === 'month') {
+      const daysInMonth = new Date(y, m, 0).getDate();
+      start = `${y}-${String(m).padStart(2, '0')}-01`;
+      end = `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    } else if (type === 'day') {
+      start = analysisDate;
+      end = analysisDate;
+    }
+
+    const nsParam = globalNamespaceFilter === 'all' ? '' : `&namespace=${globalNamespaceFilter}`;
+    const url = `https://${lang}.wikipedia.org/w/index.php?title=Special:Contributions&target=${encodeURIComponent(username)}${nsParam}&start=${start}&end=${end}`;
+    window.open(url, '_blank');
+  };
+
   const filteredPages = useMemo(() => {
     if (!stats) return [];
     return stats.editedPages.slice(0, topPagesLimit);
@@ -773,8 +797,10 @@ export function App() {
                   < div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" >
 
                     {/* 1. Yearly Performance */}
-                    < div className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg ${getCardStyle(performanceMetrics.isYearlyPositive, performanceMetrics.isYearlyProjectedUnder)}`
-                    }>
+                    < div
+                      onClick={() => handleCardClick('year')}
+                      className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] group/card ${getCardStyle(performanceMetrics.isYearlyPositive, performanceMetrics.isYearlyProjectedUnder)}`
+                      }>
                       <div className="flex items-center gap-2 mb-3 text-slate-400 text-sm font-medium">
                         <TrendingUp className={`w-4 h-4 ${getIconColor(performanceMetrics.isYearlyPositive, performanceMetrics.isYearlyProjectedUnder, 'text-purple-400')}`} />
                         <span className={getTextColor(performanceMetrics.isYearlyPositive, performanceMetrics.isYearlyProjectedUnder)}>Yearly</span>
@@ -795,7 +821,9 @@ export function App() {
                     </div >
 
                     {/* 2. Monthly Performance */}
-                    < div className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg ${getCardStyle(performanceMetrics.isMonthlyPositive, performanceMetrics.isMonthlyProjectedUnder)}`}>
+                    < div
+                      onClick={() => handleCardClick('month')}
+                      className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] group/card ${getCardStyle(performanceMetrics.isMonthlyPositive, performanceMetrics.isMonthlyProjectedUnder)}`}>
                       <div className="flex items-center gap-2 mb-3 text-slate-400 text-sm font-medium">
                         <BarChart2 className={`w-4 h-4 ${getIconColor(performanceMetrics.isMonthlyPositive, performanceMetrics.isMonthlyProjectedUnder, 'text-emerald-400')}`} />
                         <span className={getTextColor(performanceMetrics.isMonthlyPositive, performanceMetrics.isMonthlyProjectedUnder)}>Monthly</span>
@@ -816,7 +844,9 @@ export function App() {
                     </div >
 
                     {/* 3. Weekday Performance */}
-                    < div className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg ${getCardStyle(performanceMetrics.isWeekdayPositive, performanceMetrics.isWeekdayProjectedUnder)}`}>
+                    < div
+                      onClick={() => handleCardClick('day')}
+                      className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] group/card ${getCardStyle(performanceMetrics.isWeekdayPositive, performanceMetrics.isWeekdayProjectedUnder)}`}>
                       <div className="flex items-center gap-2 mb-3 text-slate-400 text-sm font-medium pr-6">
                         <Calendar className={`w-4 h-4 ${getIconColor(performanceMetrics.isWeekdayPositive, performanceMetrics.isWeekdayProjectedUnder, 'text-pink-400')}`} />
                         <span className={`${getTextColor(performanceMetrics.isWeekdayPositive, performanceMetrics.isWeekdayProjectedUnder)} truncate`}>
@@ -839,7 +869,9 @@ export function App() {
                     </div >
 
                     {/* 4. Calendar Date Performance */}
-                    < div className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg ${getCardStyle(performanceMetrics.isDatePositive, performanceMetrics.isDateProjectedUnder)}`}>
+                    < div
+                      onClick={() => handleCardClick('day')}
+                      className={`p-5 rounded-2xl border backdrop-blur-sm relative transition-all duration-300 hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] group/card ${getCardStyle(performanceMetrics.isDatePositive, performanceMetrics.isDateProjectedUnder)}`}>
                       <div className="flex items-center gap-2 mb-3 text-slate-400 text-sm font-medium pr-6">
                         <CalendarDays className={`w-4 h-4 ${getIconColor(performanceMetrics.isDatePositive, performanceMetrics.isDateProjectedUnder, 'text-yellow-400')}`} />
                         <span className={`${getTextColor(performanceMetrics.isDatePositive, performanceMetrics.isDateProjectedUnder)} truncate`}>
