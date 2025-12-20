@@ -9,6 +9,53 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { storage } from './services/storage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+// Wikipedia Groups Mapping (Standard names to readable labels)
+const GROUP_LABELS: Record<string, Record<string, string>> = {
+  pl: {
+    sysop: 'Administrator',
+    bureaucrat: 'Biurokrata',
+    bot: 'Bot',
+    'interface-admin': 'Adm. interfejsu',
+    checkuser: 'Weryfikator',
+    suppress: 'Rewizor',
+    editor: 'Redaktor',
+    autopatrolled: 'Autoprzeglądający',
+    bureaucrat_short: 'Biurokr.',
+    'extendedconfirmed': 'Rozszerzony użytkownik',
+  },
+  en: {
+    sysop: 'Administrator',
+    bureaucrat: 'Bureaucrat',
+    bot: 'Bot',
+    'interface-admin': 'Interface Admin',
+    checkuser: 'CheckUser',
+    suppress: 'Oversight',
+    editor: 'Editor',
+    autopatrolled: 'Autopatrolled',
+    extendedconfirmed: 'Extended Confirmed',
+  }
+};
+
+const UserStatusBadge: React.FC<{ group: string; lang: string }> = ({ group, lang }) => {
+  // Hide basic groups
+  if (['*', 'user', 'autoconfirmed'].includes(group)) return null;
+
+  const label = GROUP_LABELS[lang]?.[group] || GROUP_LABELS['en']?.[group] || group;
+
+  // Different styles for different levels
+  let colors = 'bg-slate-700/50 text-slate-300 border-slate-600/50';
+  if (group === 'sysop') colors = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+  if (group === 'bureaucrat') colors = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+  if (group === 'bot') colors = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+  if (group === 'checkuser' || group === 'suppress') colors = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${colors} whitespace-nowrap`}>
+      {label}
+    </span>
+  );
+};
+
 // Simple Tooltip Component
 const InfoTooltip = ({ text }: { text: string }) => (
   <div className="group relative ml-2 inline-flex items-center">
@@ -724,8 +771,42 @@ export function App() {
               <div className="space-y-6 animate-fade-in pt-4">
 
                 <ErrorBoundary>
-                  {/* ROW 1: General Stats & Created Articles */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* ROW 1: User Profile, General Stats & Created Articles */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* User Profile Card */}
+                    <div
+                      className="backdrop-blur border p-6 rounded-2xl relative overflow-hidden group"
+                      style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl -translate-y-10 translate-x-10 group-hover:bg-indigo-500/10 transition-all duration-500"></div>
+
+                      <div className="flex items-center gap-4 mb-4 relative z-10">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg">
+                          <User className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-white leading-tight">{stats.user.name}</h3>
+                          <div className="flex items-center gap-1.5 text-slate-500 text-xs mt-0.5">
+                            <CalendarDays className="w-3 h-3" />
+                            <span>Registered: {new Date(stats.user.registration).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 relative z-10">
+                        {stats.user.groups && stats.user.groups.length > 0 ? (
+                          stats.user.groups
+                            .filter(g => !['*', 'user', 'autoconfirmed'].includes(g))
+                            .map(g => <UserStatusBadge key={g} group={g} lang={lang} />)
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Standard User</span>
+                        )}
+                        {(stats.user.groups?.filter(g => !['*', 'user', 'autoconfirmed'].includes(g)).length === 0) && (
+                          <span className="text-xs text-slate-600 italic">No special rights</span>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Total Edits Card */}
                     <div
                       className="backdrop-blur border p-6 rounded-2xl relative overflow-hidden group"
@@ -735,7 +816,7 @@ export function App() {
                       <div className="flex items-center justify-between gap-3 mb-2 text-slate-400 text-sm font-medium relative z-10">
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 bg-blue-500/10 rounded-lg"><FileText className="w-4 h-4 text-blue-400" /></div>
-                          <span>Total Edits</span>
+                          <span>Total Range Edits</span>
                         </div>
                       </div>
                       <div className="text-4xl font-bold text-white tracking-tight relative z-10">
@@ -743,10 +824,10 @@ export function App() {
                       </div>
                       <div className="text-xs text-slate-500 mt-2 flex justify-between relative z-10">
                         <span>
-                          {globalNamespaceFilter === 'all' ? 'All namespaces' : `Namespace: ${getNamespaceLabel(parseInt(globalNamespaceFilter))}`}
+                          {globalNamespaceFilter === 'all' ? 'In range' : `NS: ${getNamespaceLabel(parseInt(globalNamespaceFilter))}`}
                         </span>
                         {globalNamespaceFilter === 'all' && (
-                          <span className="px-2 py-0.5 bg-slate-800/80 rounded-full text-slate-400">Global: {stats.user.editcount.toLocaleString()}</span>
+                          <span className="px-2 py-0.5 bg-slate-800/80 rounded-full text-slate-400">Lifetime: {stats.user.editcount.toLocaleString()}</span>
                         )}
                       </div>
                     </div>
@@ -764,7 +845,7 @@ export function App() {
                         {createdArticlesCount}
                       </div>
                       <div className="text-xs text-slate-500 mt-2 relative z-10">
-                        {globalNamespaceFilter === 'all' ? 'In all selected namespaces' : `In ${getNamespaceLabel(parseInt(globalNamespaceFilter))}`}
+                        {globalNamespaceFilter === 'all' ? 'In range contributions' : `In ${getNamespaceLabel(parseInt(globalNamespaceFilter))}`}
                       </div>
                     </div>
                   </div >
