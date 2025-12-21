@@ -1,4 +1,4 @@
-import React, { useState, FormEvent, useMemo, useEffect } from 'react';
+import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchWikiUser, fetchUserContributions, processStatistics } from './services/wikipedia';
 import { getNamespaceLabel, WikiContrib, WikiUser } from './types';
@@ -73,6 +73,7 @@ export function App() {
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'compare'>('dashboard');
   const [theme, setTheme] = useState(query.get('theme') || 'midnight');
+  const analysisDateInputRef = useRef<HTMLInputElement>(null);
 
   const [username, setUsername] = useState(query.get('user') || '');
   const [lang, setLang] = useState(query.get('lang') || 'pl');
@@ -723,10 +724,19 @@ export function App() {
                       </button>
                       <input
                         type="date"
+                        ref={analysisDateInputRef}
                         value={analysisDate}
                         onChange={(e) => setAnalysisDate(e.target.value)}
                         className="flex-grow pt-5 pb-1.5 px-1 bg-transparent border-none focus:ring-0 text-sm text-slate-200 transition-all text-center"
                       />
+                      <button
+                        type="button"
+                        onClick={() => analysisDateInputRef.current?.showPicker()}
+                        className="pr-2 py-1.5 text-slate-500 hover:text-blue-400 transition-colors mt-2"
+                        title="Pick from calendar"
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={handleNextDate}
