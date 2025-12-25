@@ -49,6 +49,12 @@ export interface WeekdayHourStat {
   count: number;
 }
 
+export interface TopPeriod {
+  label: string;
+  count: number;
+  date?: string; // Optional full ISO date or start date of period
+}
+
 export interface UserStatistics {
   user: WikiUser;
   totalFetched: number;
@@ -56,28 +62,34 @@ export interface UserStatistics {
   thisDayEdits: number;      // Edits today
   thisMonthEdits: number;
   thisYearEdits: number;
-  
+
   // Averages
   avgDailyEdits: number;     // Generic average per active day (kept for reference if needed)
   avgMonthlyEdits: number;   // Average edits per active month
   averagePreviousYearsEdits: number;
-  
+
   // New specific averages
   avgEditsOnCurrentWeekday: number; // e.g., Average on Mondays
   avgEditsOnCurrentDate: number;    // e.g., Average on Oct 25ths
-  
+
   namespaceStats: NamespaceStat[];
   hourlyStats: TimeStat[];
   dayOfWeekStats: TimeStat[];
   dayOfMonthStats: TimeStat[];
-  currentMonthDailyStats: TimeStat[]; 
-  currentMonthName: string; 
+  currentMonthDailyStats: TimeStat[];
+  currentMonthName: string;
   weekdayHourStats: WeekdayHourStat[];
   monthlyStats: TimeStat[];
   nsBreakdown: Record<number, number>;
   firstEditInSample: string;
   lastEditInSample: string;
   editedPages: EditedPage[];
+
+  // Top Periods
+  topDays: TopPeriod[];
+  topWeeks: TopPeriod[];
+  topMonths: TopPeriod[];
+  topYears: TopPeriod[];
 }
 
 // Enum for Namespaces

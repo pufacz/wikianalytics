@@ -205,8 +205,8 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     yearCounts[year] = (yearCounts[year] || 0) + 1;
 
     // Identifiers
-    const monthKey = `${year}-${month}`;
-    const dayKey = `${year}-${month}-${dayOfMonth}`;
+    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
     const mmddKey = `${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
 
     // General Maps
@@ -365,6 +365,91 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     .map(([title, data]) => ({ title, count: data.count, ns: data.ns }))
     .sort((a, b) => b.count - a.count);
 
+  // Helper for ISO Week (simplified)
+  const getISOWeek = (date: Date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+  };
+
+  // Group by week
+  const weekCounts: Record<string, number> = {};
+  const weekStartMap: Record<string, string> = {};
+  contribs.forEach(c => {
+    const date = new Date(c.timestamp);
+    const weekKey = getISOWeek(date);
+    weekCounts[weekKey] = (weekCounts[weekKey] || 0) + 1;
+
+    if (!weekStartMap[weekKey]) {
+      // Find Monday of this week in local time
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diff));
+      weekStartMap[weekKey] = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+    }
+  });
+
+  const getTopN = (counts: Record<string, number>, limit: number = 50): { label: string; count: number; date?: string }[] => {
+    return Object.entries(counts)
+      .map(([label, count]) => ({ label, count, date: label }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  };
+
+  const getTopWeeks = (limit: number = 50) => {
+    return Object.entries(weekCounts)
+      .map(([label, count]) => ({
+        label,
+        count,
+        date: weekStartMap[label]
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  };
+
+  // Improved Month Labels for Top Months
+  const getTopMonths = (limit: number = 50) => {
+    return Object.entries(monthlyEditsMap)
+      .map(([key, count]) => {
+        const [y, m] = key.split('-');
+        const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+        const label = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        return { label, count, date: `${y}-${m}-01` };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  };
+
+  // Improved Year Labels
+  const getTopYears = (limit: number = 50) => {
+    return Object.entries(yearCounts)
+      .map(([key, count]) => ({ label: key, count, date: `${key}-01-01` }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  };
+
+  const polishDays = ['nd', 'pn', 'wt', 'sr', 'cz', 'pt', 'sb'];
+  const topDays = Object.entries(dailyEditsMap)
+    .map(([dateKey, count]) => {
+      const date = new Date(dateKey);
+      const dayName = polishDays[date.getDay()];
+      return {
+        label: `${dateKey} (${dayName})`,
+        count,
+        date: dateKey
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
+
+  const topWeeks = getTopWeeks();
+  const topMonths = getTopMonths();
+  const topYears = getTopYears();
+
   return {
     user,
     totalFetched: contribs.length,
@@ -389,5 +474,9 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     firstEditInSample: contribs.length > 0 ? contribs[contribs.length - 1].timestamp : '',
     lastEditInSample: contribs.length > 0 ? contribs[0].timestamp : '',
     editedPages,
+    topDays,
+    topWeeks,
+    topMonths,
+    topYears
   };
 };

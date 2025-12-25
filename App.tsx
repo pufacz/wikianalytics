@@ -8,6 +8,7 @@ import { ComparisonView } from './components/ComparisonView';
 import { HistoryPanel } from './components/HistoryPanel';
 import { storage } from './services/storage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { TopPeriodsPanel } from './components/TopPeriodsPanel';
 
 // Wikipedia Groups Mapping (Standard names to readable labels)
 const GROUP_LABELS: Record<string, Record<string, string>> = {
@@ -797,6 +798,21 @@ export function App() {
               <div className="bg-rose-900/20 border border-rose-500/40 text-rose-200 p-4 rounded-xl flex items-center gap-3 backdrop-blur-sm">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <p>{error}</p>
+              </div>
+            )}
+
+            {/* Top Periods Section */}
+            {stats && (
+              <div
+                className="backdrop-blur-md border rounded-2xl p-6 shadow-xl"
+                style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+              >
+                <TopPeriodsPanel
+                  stats={stats}
+                  username={username}
+                  lang={lang}
+                  namespaceFilter={globalNamespaceFilter}
+                />
               </div>
             )}
 
