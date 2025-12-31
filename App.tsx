@@ -801,20 +801,6 @@ export function App() {
               </div>
             )}
 
-            {/* Top Periods Section */}
-            {stats && (
-              <div
-                className="backdrop-blur-md border rounded-2xl p-6 shadow-xl"
-                style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
-              >
-                <TopPeriodsPanel
-                  stats={stats}
-                  username={username}
-                  lang={lang}
-                  namespaceFilter={globalNamespaceFilter}
-                />
-              </div>
-            )}
 
             {/* Dashboard Content */}
             {!loading && stats && performanceMetrics && (
@@ -1125,6 +1111,21 @@ export function App() {
                       )}
                     </div>
                   </div >
+
+                  {/* Top Periods Section */}
+                  {stats && (
+                    <div
+                      className="backdrop-blur-md border rounded-2xl p-6 shadow-xl mb-6"
+                      style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+                    >
+                      <TopPeriodsPanel
+                        stats={stats}
+                        username={username}
+                        lang={lang}
+                        namespaceFilter={globalNamespaceFilter}
+                      />
+                    </div>
+                  )}
 
                   {/* AI Analysis Section */}
                   < AnalysisSection stats={stats} lang={lang} startDate={startDate} endDate={endDate} />

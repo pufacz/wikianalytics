@@ -266,7 +266,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   }
 
   // 2. Monthly Average
-  const currentMonthKey = `${currentYear}-${currentMonthIndex}`;
+  const currentMonthKey = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}`;
   const otherMonths = Object.keys(monthlyEditsMap).filter(k => k !== currentMonthKey);
   let avgMonthlyEdits = 0;
   if (otherMonths.length > 0) {
@@ -275,7 +275,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   }
 
   // 3. Generic Daily Average
-  const currentDayKey = `${currentYear}-${currentMonthIndex}-${currentDayOfMonth}`;
+  const currentDayKey = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
   const otherDays = Object.keys(dailyEditsMap).filter(k => k !== currentDayKey);
   let avgDailyEdits = 0;
   if (otherDays.length > 0) {
