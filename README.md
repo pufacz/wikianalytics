@@ -25,6 +25,7 @@
 
 -   Node.js (v18+ recommended)
 -   Google Gemini API Key
+-   
 
 ### Installation
 
