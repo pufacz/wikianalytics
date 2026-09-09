@@ -76,6 +76,7 @@ export interface UserStatistics {
   hourlyStats: TimeStat[];
   dayOfWeekStats: TimeStat[];
   dayOfMonthStats: TimeStat[];
+  averageHourByWeekday: TimeStat[]; // Weighted average hour for each weekday (0=Sun, 6=Sat)
   currentMonthDailyStats: TimeStat[];
   currentMonthName: string;
   weekdayHourStats: WeekdayHourStat[];

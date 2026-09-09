@@ -361,6 +361,26 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     }
   }
 
+  // Calculate weighted average hour for each weekday
+  const averageHourByWeekday = [];
+  for (let d = 0; d < 7; d++) {
+    let totalEdits = 0;
+    let weightedSum = 0;
+
+    for (let h = 0; h < 24; h++) {
+      const count = weekdayHourMatrix[d][h];
+      totalEdits += count;
+      weightedSum += h * count;
+    }
+
+    const avgHour = totalEdits > 0 ? weightedSum / totalEdits : 0;
+    averageHourByWeekday.push({
+      key: d,
+      label: days[d],
+      count: avgHour // Using 'count' field to store the average hour (0-23.99)
+    });
+  }
+
   const editedPages = Object.entries(pageCounts)
     .map(([title, data]) => ({ title, count: data.count, ns: data.ns }))
     .sort((a, b) => b.count - a.count);
@@ -466,6 +486,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     hourlyStats,
     dayOfWeekStats,
     dayOfMonthStats,
+    averageHourByWeekday,
     currentMonthDailyStats,
     currentMonthName,
     weekdayHourStats,

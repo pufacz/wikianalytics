@@ -335,3 +335,61 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
     </div>
   );
 };
+
+export const AverageHourByWeekdayChart: React.FC<{ stats: UserStatistics, referenceDate: Date }> = ({ stats, referenceDate }) => {
+  const currentLocalDay = referenceDate.getDay();
+
+  // Format hour as HH:MM
+  const formatHour = (hour: number) => {
+    const h = Math.floor(hour);
+    const m = Math.round((hour - h) * 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={stats.averageHourByWeekday}
+          margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: 'var(--chart-label)', fontSize: 12 }}
+            tickFormatter={(val) => val.substring(0, 3)}
+          />
+          <YAxis
+            tick={{ fill: 'var(--chart-label)', fontSize: 12 }}
+            domain={[0, 24]}
+            ticks={[0, 6, 12, 18, 24]}
+            tickFormatter={(val) => `${val}:00`}
+          />
+          <Tooltip
+            cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const avgHour = payload[0].value as number;
+                return (
+                  <div className="border rounded-lg p-2 text-xs shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
+                    <div className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>{payload[0].payload.label}</div>
+                    <div style={{ color: 'var(--text-primary)' }}>Avg time: {formatHour(avgHour)}</div>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+            {stats.averageHourByWeekday.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={entry.key === currentLocalDay ? '#f97316' : '#a855f7'} // Orange if current day, purple for others
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};

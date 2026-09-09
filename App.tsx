@@ -2,7 +2,7 @@ import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchWikiUser, fetchUserContributions, processStatistics } from './services/wikipedia';
 import { getNamespaceLabel, WikiContrib, WikiUser } from './types';
-import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart } from './components/DashboardCharts';
+import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart, AverageHourByWeekdayChart } from './components/DashboardCharts';
 import AnalysisSection from './components/AnalysisSection';
 import { ComparisonView } from './components/ComparisonView';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -997,6 +997,15 @@ export function App() {
                         <h3 className="text-lg font-semibold text-white">Daily Activity Rhythm (Hour by Weekday)</h3>
                       </div>
                       <WeekdayHourlyActivityChart stats={stats} referenceDate={performanceMetrics.refDate} />
+                    </div>
+
+                    {/* Average Hour by Weekday */}
+                    <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl lg:col-span-2">
+                      <div className="flex items-center gap-2 mb-6">
+                        <BarChart2 className="w-5 h-5 text-purple-400" />
+                        <h3 className="text-lg font-semibold text-white">Daily Activity Rhythm (Average Hour by Weekday)</h3>
+                      </div>
+                      <AverageHourByWeekdayChart stats={stats} referenceDate={performanceMetrics.refDate} />
                     </div>
 
                     {/* Namespace Breakdown */}
