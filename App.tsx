@@ -185,7 +185,14 @@ export function App() {
         throw new Error("User found, but has no contributions in the selected range.");
       }
 
-      // 3. Set Raw Data (Stats are computed automatically via useMemo)
+      // 3. Extract first edit date if using default start date
+      if (contribs.length > 0 && targetStartDate === '2001-01-01') {
+        const firstEditTimestamp = contribs[contribs.length - 1].timestamp;
+        const firstEditDate = firstEditTimestamp.split('T')[0];
+        setStartDate(firstEditDate);
+      }
+
+      // 4. Set Raw Data (Stats are computed automatically via useMemo)
       setRawContribs(contribs);
       setTopPagesLimit(10);
 
