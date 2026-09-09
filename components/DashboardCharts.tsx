@@ -14,7 +14,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { UserStatistics } from '../types';
+import { UserStatistics, HourComparisonStat } from '../types';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
@@ -338,15 +338,19 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
   );
 };
 
-export const CurrentDateHourlyChart: React.FC<{ stats: UserStatistics, referenceDate: Date }> = ({ stats, referenceDate }) => {
+export const HourlyPaceChart: React.FC<{
+  data: HourComparisonStat[],
+  sampleSize: number,
+  referenceDate: Date
+}> = ({ data, sampleSize, referenceDate }) => {
   const currentLocalHour = referenceDate.getHours();
-  const hasBaseline = stats.currentDateAverageYears > 0;
+  const hasBaseline = sampleSize > 0;
 
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
-          data={stats.currentDateHourlyStats}
+          data={data}
           margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
@@ -376,7 +380,7 @@ export const CurrentDateHourlyChart: React.FC<{ stats: UserStatistics, reference
                       </div>
                     </>
                   ) : (
-                    <div style={{ color: 'var(--text-secondary)' }}>No earlier year to compare</div>
+                    <div style={{ color: 'var(--text-secondary)' }}>Nothing earlier to compare</div>
                   )}
                   {label === currentLocalHour && (
                     <div className="text-orange-400 text-[10px] mt-1 font-medium">Current Hour</div>
@@ -386,7 +390,7 @@ export const CurrentDateHourlyChart: React.FC<{ stats: UserStatistics, reference
             }}
           />
           <Bar dataKey="today" radius={[4, 4, 0, 0]}>
-            {stats.currentDateHourlyStats.map((entry, index) => (
+            {data.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={entry.key === currentLocalHour ? '#f97316' : '#a855f7'} // Orange if current hour, purple for others

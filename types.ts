@@ -85,6 +85,10 @@ export interface UserStatistics {
   // Reference date's hour-by-hour edits set against the same calendar date in earlier years
   currentDateHourlyStats: HourComparisonStat[];
   currentDateAverageYears: number; // Earlier years that edited this date — the average's denominator
+
+  // Same idea against the reference date's weekday: every earlier Wednesday, say
+  currentWeekdayHourlyStats: HourComparisonStat[];
+  currentWeekdayAverageDays: number; // Earlier same-weekday days that had edits
   currentMonthDailyStats: TimeStat[];
   currentMonthName: string;
   weekdayHourStats: WeekdayHourStat[];

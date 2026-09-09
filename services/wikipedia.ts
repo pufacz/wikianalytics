@@ -186,9 +186,9 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   // Matrix: weekday (0-6) -> hour (0-23) -> count
   const weekdayHourMatrix: number[][] = Array(7).fill(0).map(() => Array(24).fill(0));
 
-  // Hour profile of the reference calendar date (MM-DD), split so the reference
-  // year never feeds the baseline it is being compared against.
-  const currentDateHourToday: number[] = Array(24).fill(0);
+  // Edits made on the reference date itself, hour by hour. Serves as the "today"
+  // series for every pace chart, and is kept out of the baselines it is compared to.
+  const referenceDayHourly: number[] = Array(24).fill(0);
   const currentDateHourEarlier: number[] = Array(24).fill(0);
   const currentDateEarlierYears = new Set<number>();
 
@@ -256,7 +256,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     // 3. Hour profile for this exact calendar date
     if (mmddKey === currentMMDD) {
       if (year === currentYear) {
-        currentDateHourToday[hour]++;
+        referenceDayHourly[hour]++;
       } else {
         currentDateHourEarlier[hour]++;
         currentDateEarlierYears.add(year);
@@ -336,6 +336,18 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     avgEditsOnCurrentWeekday = historicWeekdayEdits / historicWeekdayCount;
   }
 
+  // Hourly pace against the same weekday: today's hours versus the mean of every
+  // earlier occurrence of that weekday that saw an edit. Both the totals and the
+  // day count already exist, so the reference day is simply subtracted back out.
+  const currentWeekdayAverageDays = historicWeekdayCount;
+  const currentWeekdayHourlyStats = Array.from({ length: 24 }, (_, h) => ({
+    key: h,
+    today: referenceDayHourly[h],
+    average: currentWeekdayAverageDays > 0
+      ? (weekdayHourMatrix[currentDayOfWeek][h] - referenceDayHourly[h]) / currentWeekdayAverageDays
+      : 0,
+  }));
+
   // 5. Specific Calendar Date Average (e.g., Average for Oct 25ths)
   let avgEditsOnCurrentDate = 0;
   const totalEditsCurrentDate = calendarDateEditsMap[currentMMDD] || 0;
@@ -404,7 +416,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   const currentDateAverageYears = currentDateEarlierYears.size;
   const currentDateHourlyStats = Array.from({ length: 24 }, (_, h) => ({
     key: h,
-    today: currentDateHourToday[h],
+    today: referenceDayHourly[h],
     average: currentDateAverageYears > 0 ? currentDateHourEarlier[h] / currentDateAverageYears : 0,
   }));
 
@@ -515,6 +527,8 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     dayOfMonthStats,
     currentDateHourlyStats,
     currentDateAverageYears,
+    currentWeekdayHourlyStats,
+    currentWeekdayAverageDays,
     currentMonthDailyStats,
     currentMonthName,
     weekdayHourStats,

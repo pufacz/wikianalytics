@@ -2,7 +2,7 @@ import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchWikiUser, fetchUserContributions, fetchFirstEditDate, processStatistics } from './services/wikipedia';
 import { getNamespaceLabel, WikiContrib, WikiUser } from './types';
-import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart, CurrentDateHourlyChart } from './components/DashboardCharts';
+import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart, HourlyPaceChart } from './components/DashboardCharts';
 import AnalysisSection from './components/AnalysisSection';
 import { ComparisonView } from './components/ComparisonView';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -1048,6 +1048,25 @@ export function App() {
                       <WeekdayHourlyActivityChart stats={stats} referenceDate={performanceMetrics.refDate} />
                     </div>
 
+                    {/* Hourly Pace on the Reference Weekday */}
+                    <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl lg:col-span-2">
+                      <div className="flex items-center justify-between gap-2 mb-6">
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="w-5 h-5 text-emerald-400" />
+                          <h3 className="text-lg font-semibold text-white">Hourly Pace on {performanceMetrics.currentDayName}s (vs. Average)</h3>
+                        </div>
+                        <div className="flex items-center flex-shrink-0 gap-2">
+                          <span className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20 whitespace-nowrap">
+                            {stats.currentWeekdayAverageDays > 0
+                              ? `Avg of ${stats.currentWeekdayAverageDays} earlier ${performanceMetrics.currentDayName}s`
+                              : `No earlier ${performanceMetrics.currentDayName} to compare`}
+                          </span>
+                          <InfoTooltip text={`Edits hour by hour on the Reference Date. Bars are that day itself; the dashed line is the average for every earlier ${performanceMetrics.currentDayName} in the range.\n\nOnly ${performanceMetrics.currentDayName}s that actually saw an edit are averaged, and the Reference Date is left out, so today cannot raise the bar it is being measured against.\n\nThe line runs the full 24 hours while the bars stop at the current hour, so the stretch ahead shows what a typical ${performanceMetrics.currentDayName} evening still adds.`} />
+                        </div>
+                      </div>
+                      <HourlyPaceChart data={stats.currentWeekdayHourlyStats} sampleSize={stats.currentWeekdayAverageDays} referenceDate={performanceMetrics.refDate} />
+                    </div>
+
                     {/* Hourly Pace on the Reference Date */}
                     <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl lg:col-span-2">
                       <div className="flex items-center justify-between gap-2 mb-6">
@@ -1064,7 +1083,7 @@ export function App() {
                           <InfoTooltip text={`Edits hour by hour on ${performanceMetrics.currentDateName}. Bars are the Reference Date itself; the dashed line is the average for that same calendar date in earlier years.\n\nThe average counts only years that actually saw an edit on this date, and never includes the Reference Date's own year, so today cannot inflate its own baseline.\n\nRead it to see which hours are running above or below par, and how many edits are still needed to pull the day over its average. Note the small sample: one day per year, ${stats.currentDateAverageYears} in total here.`} />
                         </div>
                       </div>
-                      <CurrentDateHourlyChart stats={stats} referenceDate={performanceMetrics.refDate} />
+                      <HourlyPaceChart data={stats.currentDateHourlyStats} sampleSize={stats.currentDateAverageYears} referenceDate={performanceMetrics.refDate} />
                     </div>
 
                     {/* Namespace Breakdown */}

@@ -123,6 +123,54 @@ describe('processStatistics', () => {
             expect(onlyToday.currentDateHourlyStats.every(s => s.average === 0)).toBe(true);
         });
     });
+
+    describe('currentWeekdayHourlyStats (hourly pace vs. the same weekday)', () => {
+        const at = (y: number, m: number, d: number, h: number) =>
+            createContrib(new Date(y, m - 1, d, h, 0, 0).toISOString());
+
+        // Oct 23 2024 is a Wednesday; Oct 16 and Oct 9 are the two before it.
+        const refDate = new Date(2024, 9, 23, 15, 0, 0);
+
+        const contribs = [
+            at(2024, 10, 23, 14), at(2024, 10, 23, 14), // the reference Wednesday
+            at(2024, 10, 16, 14), at(2024, 10, 16, 14),
+            at(2024, 10, 16, 14), at(2024, 10, 16, 14), // 4 edits at 14:00
+            at(2024, 10, 9, 14), at(2024, 10, 9, 14),   // 2 edits at 14:00
+            at(2024, 10, 22, 14), at(2024, 10, 22, 14), // Tuesday, must not count
+        ];
+
+        const stats = processStatistics(mockUser, contribs, refDate);
+        const hour = (h: number) => stats.currentWeekdayHourlyStats.find(s => s.key === h)!;
+
+        it('confirms the fixture really is a Wednesday', () => {
+            expect(refDate.getDay()).toBe(3);
+        });
+
+        it('averages over earlier days of that weekday only', () => {
+            // 4 edits (Oct 16) + 2 (Oct 9) at 14:00 over 2 Wednesdays. The 10 Tuesday
+            // edits are excluded, and the reference Wednesday is not in the baseline:
+            // including it would give (4+2+2)/3 = 2.67.
+            expect(stats.currentWeekdayAverageDays).toBe(2);
+            expect(hour(14).average).toBe(3);
+        });
+
+        it('shows the reference day own edits as "today"', () => {
+            expect(hour(14).today).toBe(2);
+            expect(hour(15).today).toBe(0);
+        });
+
+        it('shares the "today" series with the calendar-date chart', () => {
+            // Both charts describe the same day, so only their baselines may differ.
+            expect(stats.currentWeekdayHourlyStats.map(s => s.today))
+                .toEqual(stats.currentDateHourlyStats.map(s => s.today));
+        });
+
+        it('reports a zero baseline when that weekday has no earlier edits', () => {
+            const onlyToday = processStatistics(mockUser, [at(2024, 10, 23, 14)], refDate);
+            expect(onlyToday.currentWeekdayAverageDays).toBe(0);
+            expect(onlyToday.currentWeekdayHourlyStats.every(s => s.average === 0)).toBe(true);
+        });
+    });
 });
 
 describe('fetchFirstEditDate', () => {
