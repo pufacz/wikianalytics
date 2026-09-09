@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { App } from './App';
-import { fetchFirstEditDate } from './services/wikipedia';
+import { fetchFirstEditDate, fetchWikiUser, fetchUserContributions } from './services/wikipedia';
+import { WikiContrib } from './types';
+
+// The charts themselves are recharts internals that cannot lay out in jsdom, and the
+// tooltips under test live in App.tsx headers, not inside the charts.
+vi.mock('./components/DashboardCharts', () => Object.fromEntries(
+    ['NamespaceChart', 'HourlyActivityChart', 'WeeklyActivityChart', 'DayOfMonthChart',
+     'ActivityHeatmap', 'CurrentMonthDailyChart', 'WeekdayHourlyActivityChart',
+     'AverageHourByWeekdayChart'].map(name => [name, () => <div data-testid={name} />])
+));
 
 vi.mock('./services/storage', () => ({
     storage: {
@@ -15,6 +24,8 @@ vi.mock('./services/storage', () => ({
 vi.mock('./services/wikipedia', async (importOriginal) => ({
     ...(await importOriginal<typeof import('./services/wikipedia')>()),
     fetchFirstEditDate: vi.fn(),
+    fetchWikiUser: vi.fn(),
+    fetchUserContributions: vi.fn(),
 }));
 
 describe('App: "From" date follows the selected editor', () => {
@@ -80,5 +91,60 @@ describe('App: "From" date follows the selected editor', () => {
 
         expect(fromInput().value).toBe('2015-06-01');
         expect(fetchFirstEditDate).not.toHaveBeenCalled();
+    });
+});
+
+describe('App: every chart carries a description tooltip', () => {
+    const contribs: WikiContrib[] = Array.from({ length: 40 }, (_, i) => ({
+        userid: 1,
+        user: 'Gdarin',
+        pageid: i,
+        revid: i,
+        parentid: 0,
+        ns: i % 3 === 0 ? 0 : 4,
+        title: `Page ${i % 7}`,
+        timestamp: `2024-0${(i % 9) + 1}-1${i % 10}T0${i % 10}:15:00Z`,
+        comment: 'edit',
+        size: 100,
+    }));
+
+    const renderDashboard = async () => {
+        vi.mocked(fetchFirstEditDate).mockResolvedValue('2024-01-10');
+        vi.mocked(fetchWikiUser).mockResolvedValue({
+            userid: 1, name: 'Gdarin', editcount: 40, registration: '2003-09-11T00:00:00Z', groups: [],
+        });
+        vi.mocked(fetchUserContributions).mockResolvedValue(contribs);
+
+        render(<App />);
+        await act(async () => { await Promise.resolve(); });
+
+        fireEvent.change(screen.getByPlaceholderText('Enter Username...'), { target: { value: 'Gdarin' } });
+        fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+
+        await screen.findByText('Namespace Distribution', {}, { timeout: 3000 });
+    };
+
+    // One distinctive phrase per chart, so a dropped or mis-wired tooltip fails loudly.
+    const expectedTooltips: [string, RegExp][] = [
+        ['Hour by Weekday', /Hour-by-hour edits on a single weekday/],
+        ['Average Hour by Weekday', /does not wrap around midnight/],
+        ['Namespace Distribution', /six largest namespaces/],
+        ['Activity by Hour', /browser's local time, not UTC/],
+        ['Activity by Day of Week', /raw totals, not averages/],
+        ['Activity in <month>', /added up across every year in the range/],
+        ['Day of Month (Overall)', /Day 31 occurs in only 7 months/],
+        ['Heatmap', /relative to the single busiest cell/],
+    ];
+
+    it.each(expectedTooltips)('describes the %s chart', async (_name, phrase) => {
+        await renderDashboard();
+        expect(screen.getByText(phrase)).toBeInTheDocument();
+    });
+
+    it('renders the month chart description with the actual month name', async () => {
+        await renderDashboard();
+        const heading = screen.getByText(/^Activity in .+ \(Daily\)$/);
+        const month = heading.textContent!.replace('Activity in ', '').replace(' (Daily)', '');
+        expect(screen.getByText(new RegExp(`Edits on each day of ${month},`))).toBeInTheDocument();
     });
 });

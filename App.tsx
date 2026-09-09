@@ -1038,25 +1038,34 @@ export function App() {
 
                     {/* Hourly Activity by Weekday */}
                     <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl lg:col-span-2">
-                      <div className="flex items-center gap-2 mb-6">
-                        <BarChart2 className="w-5 h-5 text-blue-400" />
-                        <h3 className="text-lg font-semibold text-white">Daily Activity Rhythm (Hour by Weekday)</h3>
+                      <div className="flex items-center justify-between gap-2 mb-6">
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="w-5 h-5 text-blue-400" />
+                          <h3 className="text-lg font-semibold text-white">Daily Activity Rhythm (Hour by Weekday)</h3>
+                        </div>
+                        <InfoTooltip text={`Hour-by-hour edits on a single weekday: the one the Reference Date falls on.\n\nEvery occurrence of that weekday in the range is pooled together. Move the Reference Date to inspect a different weekday.\n\nOrange = hour of the Reference Date. Local time.`} />
                       </div>
                       <WeekdayHourlyActivityChart stats={stats} referenceDate={performanceMetrics.refDate} />
                     </div>
 
                     {/* Average Hour by Weekday */}
                     <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl lg:col-span-2">
-                      <div className="flex items-center gap-2 mb-6">
-                        <BarChart2 className="w-5 h-5 text-purple-400" />
-                        <h3 className="text-lg font-semibold text-white">Daily Activity Rhythm (Average Hour by Weekday)</h3>
+                      <div className="flex items-center justify-between gap-2 mb-6">
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="w-5 h-5 text-purple-400" />
+                          <h3 className="text-lg font-semibold text-white">Daily Activity Rhythm (Average Hour by Weekday)</h3>
+                        </div>
+                        <InfoTooltip text={`Typical time of day of an edit, per weekday: the mean hour of every edit made on that weekday, weighted by edit count.\n\nCaution: a plain average does not wrap around midnight. Editing at 23:00 and at 01:00 averages to noon, not to midnight.\n\nOrange = weekday of the Reference Date. Local time.`} />
                       </div>
                       <AverageHourByWeekdayChart stats={stats} referenceDate={performanceMetrics.refDate} />
                     </div>
 
                     {/* Namespace Breakdown */}
                     < div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl" >
-                      <h3 className="text-lg font-semibold text-white mb-6">Namespace Distribution</h3>
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-white">Namespace Distribution</h3>
+                        <InfoTooltip text={`Share of edits per namespace over the selected date range.\n\nThe six largest namespaces get their own slice; everything else is pooled into "Others".\n\nWith a namespace filter active only that one namespace is counted, leaving a single slice.`} />
+                      </div>
                       <NamespaceChart stats={stats} />
                       <div className="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-400">
                         {stats.namespaceStats.slice(0, 4).map(ns => (
@@ -1073,7 +1082,10 @@ export function App() {
                       <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl">
                         <div className="flex justify-between items-start mb-4">
                           <h3 className="text-lg font-semibold text-white">Activity by Hour (Local)</h3>
-                          <span className="text-[10px] px-2 py-1 bg-orange-500/10 text-orange-400 rounded-full border border-orange-500/20">Orange = Ref Time</span>
+                          <div className="flex items-center flex-shrink-0">
+                            <span className="text-[10px] px-2 py-1 bg-orange-500/10 text-orange-400 rounded-full border border-orange-500/20">Orange = Ref Time</span>
+                            <InfoTooltip text={`Total edits by hour of day (0-23), pooled over the whole selected range.\n\nHours are read in your browser's local time, not UTC, so the shape of this chart shifts if you open the report in another time zone.\n\nOrange = hour of the Reference Date.`} />
+                          </div>
                         </div>
                         <HourlyActivityChart stats={stats} referenceDate={performanceMetrics.refDate} />
                       </div>
@@ -1081,7 +1093,10 @@ export function App() {
                       <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl">
                         <div className="flex justify-between items-start mb-4">
                           <h3 className="text-lg font-semibold text-white">Activity by Day of Week</h3>
-                          <span className="text-[10px] px-2 py-1 bg-orange-500/10 text-orange-400 rounded-full border border-orange-500/20">Orange = Ref Day</span>
+                          <div className="flex items-center flex-shrink-0">
+                            <span className="text-[10px] px-2 py-1 bg-orange-500/10 text-orange-400 rounded-full border border-orange-500/20">Orange = Ref Day</span>
+                            <InfoTooltip text={`Total edits per weekday over the whole selected range.\n\nThese are raw totals, not averages: a weekday that simply occurs more often inside the range gets a taller bar.\n\nOrange = weekday of the Reference Date. Local time.`} />
+                          </div>
                         </div>
                         <WeeklyActivityChart stats={stats} referenceDate={performanceMetrics.refDate} />
                       </div>
@@ -1091,23 +1106,32 @@ export function App() {
                     < div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6" >
                       {/* Current Month Chart */}
                       < div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl" >
-                        <h3 className="text-lg font-semibold text-white mb-4">Activity in {stats.currentMonthName} (Daily)</h3>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-white">Activity in {stats.currentMonthName} (Daily)</h3>
+                          <InfoTooltip text={`Edits on each day of ${stats.currentMonthName}, added up across every year in the range.\n\nOnly this one month is counted. The month follows the Reference Date, so move that date to look at another month.\n\nOrange = day of the Reference Date.`} />
+                        </div>
                         <p className="text-xs text-slate-400 mb-2">Aggregated across all selected years</p>
                         <CurrentMonthDailyChart stats={stats} referenceDate={performanceMetrics.refDate} />
                       </div >
 
                       {/* All Months Chart */}
                       < div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl" >
-                        <h3 className="text-lg font-semibold text-white mb-4">Activity by Day of Month (Overall)</h3>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-white">Activity by Day of Month (Overall)</h3>
+                          <InfoTooltip text={`Total edits per day number (1-31) across all months in the range.\n\nCaution: the tail is low by construction. Day 31 occurs in only 7 months of the year and day 30 in 11, so short bars there reflect the calendar rather than a drop in activity.\n\nOrange = day of the Reference Date.`} />
+                        </div>
                         <DayOfMonthChart stats={stats} referenceDate={performanceMetrics.refDate} />
                       </div >
                     </div >
 
                     {/* Heatmap */}
                     < div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-6 rounded-2xl lg:col-span-2" >
-                      <div className="flex items-center gap-2 mb-6">
-                        <Grid className="w-5 h-5 text-blue-400" />
-                        <h3 className="text-lg font-semibold text-white">Weekly Editing Rhythm (Heatmap - Local Time)</h3>
+                      <div className="flex items-center justify-between gap-2 mb-6">
+                        <div className="flex items-center gap-2">
+                          <Grid className="w-5 h-5 text-blue-400" />
+                          <h3 className="text-lg font-semibold text-white">Weekly Editing Rhythm (Heatmap - Local Time)</h3>
+                        </div>
+                        <InfoTooltip text={`Every edit in the range mapped onto a weekday x hour grid, showing the shape of a typical week.\n\nColour intensity is relative to the single busiest cell, so it says nothing about absolute volume. Hover a cell for its exact count.\n\nOrange outline = weekday and hour of the Reference Date. Local time.`} />
                       </div>
                       <ActivityHeatmap stats={stats} referenceDate={performanceMetrics.refDate} />
                     </div >
