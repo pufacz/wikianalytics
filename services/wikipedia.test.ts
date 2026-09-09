@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { processStatistics } from './wikipedia';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { processStatistics, fetchFirstEditDate } from './wikipedia';
 import { WikiUser, WikiContrib, Namespace } from '../types';
 
 describe('processStatistics', () => {
@@ -72,5 +72,40 @@ describe('processStatistics', () => {
         const stats = processStatistics(mockUser, contribs, new Date());
         const totalHours = stats.hourlyStats.reduce((acc, curr) => acc + curr.count, 0);
         expect(totalHours).toBe(2);
+    });
+});
+
+describe('fetchFirstEditDate', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    const stubFetch = (payload: unknown) => {
+        const fetchMock = vi.fn().mockResolvedValue({ json: async () => payload });
+        vi.stubGlobal('fetch', fetchMock);
+        return fetchMock;
+    };
+
+    it('asks for the oldest edit and returns its date', async () => {
+        const fetchMock = stubFetch({
+            query: { usercontribs: [{ timestamp: '2003-09-11T13:04:12Z' }] }
+        });
+
+        const result = await fetchFirstEditDate('Gdarin', 'pl');
+
+        expect(result).toBe('2003-09-11');
+
+        // Direction matters: without ucdir=newer the API returns the NEWEST edit.
+        const url = new URL(fetchMock.mock.calls[0][0]);
+        expect(url.origin).toBe('https://pl.wikipedia.org');
+        expect(url.searchParams.get('ucdir')).toBe('newer');
+        expect(url.searchParams.get('uclimit')).toBe('1');
+        expect(url.searchParams.get('ucuser')).toBe('Gdarin');
+    });
+
+    it('returns null for a user with no contributions', async () => {
+        stubFetch({ query: { usercontribs: [] } });
+
+        expect(await fetchFirstEditDate('NoSuchUser', 'pl')).toBeNull();
     });
 });

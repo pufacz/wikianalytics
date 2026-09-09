@@ -32,6 +32,27 @@ export const fetchWikiUser = async (username: string, lang: string = 'pl'): Prom
   }
 };
 
+// Returns the UTC date (YYYY-MM-DD) of the user's oldest contribution, or null if they have none.
+export const fetchFirstEditDate = async (username: string, lang: string = 'pl'): Promise<string | null> => {
+  const endpoint = `https://${lang}.wikipedia.org/w/api.php`;
+  const params = new URLSearchParams({
+    action: 'query',
+    list: 'usercontribs',
+    ucuser: username,
+    ucprop: 'timestamp',
+    uclimit: '1',
+    ucdir: 'newer',
+    format: 'json',
+    origin: '*',
+  });
+
+  const response = await fetch(`${endpoint}?${params.toString()}`);
+  const data = await response.json();
+  const oldest = data.query?.usercontribs?.[0];
+
+  return oldest ? oldest.timestamp.split('T')[0] : null;
+};
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const fetchUserContributions = async (

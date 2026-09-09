@@ -1,6 +1,6 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { fetchWikiUser, fetchUserContributions, processStatistics } from './services/wikipedia';
+import { fetchWikiUser, fetchUserContributions, fetchFirstEditDate, processStatistics } from './services/wikipedia';
 import { getNamespaceLabel, WikiContrib, WikiUser } from './types';
 import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart, AverageHourByWeekdayChart } from './components/DashboardCharts';
 import AnalysisSection from './components/AnalysisSection';
@@ -102,9 +102,47 @@ export function App() {
   const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
 
+  // Which user@lang already had its "From" date filled in from the first edit.
+  // Seeded from the URL so an explicit ?start= is never overwritten.
+  const autoStartDateKeyRef = useRef<string | null>(
+    query.get('start') ? `${query.get('user') || ''}@${query.get('lang') || 'pl'}` : null
+  );
+  const [detectingFirstEdit, setDetectingFirstEdit] = useState(false);
+
   useEffect(() => {
     loadSavedProfiles();
   }, []);
+
+  // On editor change, look up their oldest edit and use it as the "From" date.
+  // The ref marks a key whose date is already settled — auto-filled before,
+  // restored from a saved profile, or typed by hand — and is re-checked at every
+  // step, since the user can take over while the lookup is still pending.
+  useEffect(() => {
+    const name = username.trim();
+    const key = `${name}@${lang}`;
+    if (!name || autoStartDateKeyRef.current === key) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (autoStartDateKeyRef.current === key) return;
+      setDetectingFirstEdit(true);
+      try {
+        const firstEdit = await fetchFirstEditDate(name, lang);
+        if (cancelled || autoStartDateKeyRef.current === key) return;
+        autoStartDateKeyRef.current = key;
+        if (firstEdit) setStartDate(firstEdit);
+      } catch {
+        // Best effort only — the field stays editable by hand.
+      } finally {
+        setDetectingFirstEdit(false);
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [username, lang]);
 
   const loadSavedProfiles = async () => {
     const list = await storage.listUsers();
@@ -185,14 +223,7 @@ export function App() {
         throw new Error("User found, but has no contributions in the selected range.");
       }
 
-      // 3. Extract first edit date if using default start date
-      if (contribs.length > 0 && targetStartDate === '2001-01-01') {
-        const firstEditTimestamp = contribs[contribs.length - 1].timestamp;
-        const firstEditDate = firstEditTimestamp.split('T')[0];
-        setStartDate(firstEditDate);
-      }
-
-      // 4. Set Raw Data (Stats are computed automatically via useMemo)
+      // 3. Set Raw Data (Stats are computed automatically via useMemo)
       setRawContribs(contribs);
       setTopPagesLimit(10);
 
@@ -327,6 +358,7 @@ export function App() {
     if (data) {
       setLoading(true);
       try {
+        autoStartDateKeyRef.current = `${data.username}@${data.lang}`;
         setUsername(data.username);
         setLang(data.lang);
         setStartDate(data.rangeStart);
@@ -699,11 +731,17 @@ export function App() {
                   {/* Date Range */}
                   <div className="md:col-span-6 flex items-center bg-slate-900/50 border border-slate-700 rounded-xl p-1">
                     <div className="relative flex-grow">
-                      <span className="absolute left-3 top-2 text-[10px] uppercase text-slate-500 font-semibold tracking-wider">From</span>
+                      <span className="absolute left-3 top-2 text-[10px] uppercase text-slate-500 font-semibold tracking-wider">
+                        From {detectingFirstEdit && <span className="text-blue-400 normal-case tracking-normal">· finding first edit…</span>}
+                      </span>
                       <input
                         type="date"
+                        aria-label="From"
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={(e) => {
+                          autoStartDateKeyRef.current = `${username.trim()}@${lang}`;
+                          setStartDate(e.target.value);
+                        }}
                         className="w-full pl-3 pt-5 pb-1 pr-2 bg-transparent border-none rounded-lg focus:ring-0 text-sm text-slate-200"
                       />
                     </div>
@@ -712,6 +750,7 @@ export function App() {
                       <span className="absolute left-3 top-2 text-[10px] uppercase text-slate-500 font-semibold tracking-wider">To</span>
                       <input
                         type="date"
+                        aria-label="To"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         className="w-full pl-3 pt-5 pb-1 pr-2 bg-transparent border-none rounded-lg focus:ring-0 text-sm text-slate-200"
