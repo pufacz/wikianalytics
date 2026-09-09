@@ -186,6 +186,12 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   // Matrix: weekday (0-6) -> hour (0-23) -> count
   const weekdayHourMatrix: number[][] = Array(7).fill(0).map(() => Array(24).fill(0));
 
+  // Hour profile of the reference calendar date (MM-DD), split so the reference
+  // year never feeds the baseline it is being compared against.
+  const currentDateHourToday: number[] = Array(24).fill(0);
+  const currentDateHourEarlier: number[] = Array(24).fill(0);
+  const currentDateEarlierYears = new Set<number>();
+
   let thisMonthEdits = 0;
 
   // Initialize counters
@@ -246,6 +252,16 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
       calendarDateUniqueYearsMap[mmddKey] = new Set();
     }
     calendarDateUniqueYearsMap[mmddKey].add(year);
+
+    // 3. Hour profile for this exact calendar date
+    if (mmddKey === currentMMDD) {
+      if (year === currentYear) {
+        currentDateHourToday[hour]++;
+      } else {
+        currentDateHourEarlier[hour]++;
+        currentDateEarlierYears.add(year);
+      }
+    }
 
     // Heatmap Matrix
     weekdayHourMatrix[day][hour]++;
@@ -382,25 +398,15 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     }
   }
 
-  // Calculate weighted average hour for each weekday
-  const averageHourByWeekday = [];
-  for (let d = 0; d < 7; d++) {
-    let totalEdits = 0;
-    let weightedSum = 0;
-
-    for (let h = 0; h < 24; h++) {
-      const count = weekdayHourMatrix[d][h];
-      totalEdits += count;
-      weightedSum += h * count;
-    }
-
-    const avgHour = totalEdits > 0 ? weightedSum / totalEdits : 0;
-    averageHourByWeekday.push({
-      key: d,
-      label: days[d],
-      count: avgHour // Using 'count' field to store the average hour (0-23.99)
-    });
-  }
+  // Hourly pace for the reference date: what was done today at each hour, against
+  // the mean of earlier years that edited this same calendar date. Only years with
+  // at least one edit that day count, so long gaps do not flatten the baseline.
+  const currentDateAverageYears = currentDateEarlierYears.size;
+  const currentDateHourlyStats = Array.from({ length: 24 }, (_, h) => ({
+    key: h,
+    today: currentDateHourToday[h],
+    average: currentDateAverageYears > 0 ? currentDateHourEarlier[h] / currentDateAverageYears : 0,
+  }));
 
   const editedPages = Object.entries(pageCounts)
     .map(([title, data]) => ({ title, count: data.count, ns: data.ns }))
@@ -507,7 +513,8 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     hourlyStats,
     dayOfWeekStats,
     dayOfMonthStats,
-    averageHourByWeekday,
+    currentDateHourlyStats,
+    currentDateAverageYears,
     currentMonthDailyStats,
     currentMonthName,
     weekdayHourStats,

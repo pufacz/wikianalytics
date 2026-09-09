@@ -9,7 +9,7 @@ import { WikiContrib } from './types';
 vi.mock('./components/DashboardCharts', () => Object.fromEntries(
     ['NamespaceChart', 'HourlyActivityChart', 'WeeklyActivityChart', 'DayOfMonthChart',
      'ActivityHeatmap', 'CurrentMonthDailyChart', 'WeekdayHourlyActivityChart',
-     'AverageHourByWeekdayChart'].map(name => [name, () => <div data-testid={name} />])
+     'CurrentDateHourlyChart'].map(name => [name, () => <div data-testid={name} />])
 ));
 
 vi.mock('./services/storage', () => ({
@@ -127,7 +127,7 @@ describe('App: every chart carries a description tooltip', () => {
     // One distinctive phrase per chart, so a dropped or mis-wired tooltip fails loudly.
     const expectedTooltips: [string, RegExp][] = [
         ['Hour by Weekday', /Hour-by-hour edits on a single weekday/],
-        ['Average Hour by Weekday', /does not wrap around midnight/],
+        ['Hourly Pace vs Average', /never includes the Reference Date's own year/],
         ['Namespace Distribution', /six largest namespaces/],
         ['Activity by Hour', /browser's local time, not UTC/],
         ['Activity by Day of Week', /raw totals, not averages/],

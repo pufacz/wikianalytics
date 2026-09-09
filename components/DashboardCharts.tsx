@@ -1,7 +1,9 @@
 import React from 'react';
 import {
   BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -336,59 +338,73 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
   );
 };
 
-export const AverageHourByWeekdayChart: React.FC<{ stats: UserStatistics, referenceDate: Date }> = ({ stats, referenceDate }) => {
-  const currentLocalDay = referenceDate.getDay();
-
-  // Format hour as HH:MM
-  const formatHour = (hour: number) => {
-    const h = Math.floor(hour);
-    const m = Math.round((hour - h) * 60);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  };
+export const CurrentDateHourlyChart: React.FC<{ stats: UserStatistics, referenceDate: Date }> = ({ stats, referenceDate }) => {
+  const currentLocalHour = referenceDate.getHours();
+  const hasBaseline = stats.currentDateAverageYears > 0;
 
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={stats.averageHourByWeekday}
+        <ComposedChart
+          data={stats.currentDateHourlyStats}
           margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
-            dataKey="label"
-            tick={{ fill: 'var(--chart-label)', fontSize: 12 }}
-            tickFormatter={(val) => val.substring(0, 3)}
-          />
-          <YAxis
-            tick={{ fill: 'var(--chart-label)', fontSize: 12 }}
-            domain={[0, 24]}
-            ticks={[0, 6, 12, 18, 24]}
+            dataKey="key"
+            tick={{ fill: 'var(--chart-label)', fontSize: 10 }}
+            interval={2}
             tickFormatter={(val) => `${val}:00`}
           />
+          <YAxis tick={{ fill: 'var(--chart-label)', fontSize: 12 }} />
           <Tooltip
             cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
-            content={({ active, payload }) => {
-              if (active && payload && payload.length) {
-                const avgHour = payload[0].value as number;
-                return (
-                  <div className="border rounded-lg p-2 text-xs shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
-                    <div className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>{payload[0].payload.label}</div>
-                    <div style={{ color: 'var(--text-primary)' }}>Avg time: {formatHour(avgHour)}</div>
-                  </div>
-                );
-              }
-              return null;
+            content={({ active, payload, label }) => {
+              if (!active || !payload || !payload.length) return null;
+              const row = payload[0].payload as { today: number; average: number };
+              const diff = row.today - row.average;
+
+              return (
+                <div className="border rounded-lg p-2 text-xs shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
+                  <div className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>{label}:00</div>
+                  <div style={{ color: 'var(--text-primary)' }}>Today: {row.today}</div>
+                  {hasBaseline ? (
+                    <>
+                      <div style={{ color: 'var(--text-secondary)' }}>Average: {row.average.toFixed(1)}</div>
+                      <div className={`mt-1 font-medium ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {diff >= 0 ? '+' : ''}{diff.toFixed(1)} vs average
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ color: 'var(--text-secondary)' }}>No earlier year to compare</div>
+                  )}
+                  {label === currentLocalHour && (
+                    <div className="text-orange-400 text-[10px] mt-1 font-medium">Current Hour</div>
+                  )}
+                </div>
+              );
             }}
           />
-          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-            {stats.averageHourByWeekday.map((entry, index) => (
+          <Bar dataKey="today" radius={[4, 4, 0, 0]}>
+            {stats.currentDateHourlyStats.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.key === currentLocalDay ? '#f97316' : '#a855f7'} // Orange if current day, purple for others
+                fill={entry.key === currentLocalHour ? '#f97316' : '#a855f7'} // Orange if current hour, purple for others
               />
             ))}
           </Bar>
-        </BarChart>
+          {hasBaseline && (
+            <Line
+              type="monotone"
+              dataKey="average"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              strokeDasharray="4 3"
+              dot={false}
+              activeDot={false}
+            />
+          )}
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

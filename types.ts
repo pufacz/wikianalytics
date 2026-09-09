@@ -43,6 +43,12 @@ export interface EditedPage {
   ns: number;
 }
 
+export interface HourComparisonStat {
+  key: number;     // Hour of day, 0-23
+  today: number;   // Edits made at this hour on the reference date itself
+  average: number; // Mean edits at this hour on the same calendar date in earlier years
+}
+
 export interface WeekdayHourStat {
   weekday: number; // 0-6
   hour: number;    // 0-23
@@ -76,7 +82,9 @@ export interface UserStatistics {
   hourlyStats: TimeStat[];
   dayOfWeekStats: TimeStat[];
   dayOfMonthStats: TimeStat[];
-  averageHourByWeekday: TimeStat[]; // Weighted average hour for each weekday (0=Sun, 6=Sat)
+  // Reference date's hour-by-hour edits set against the same calendar date in earlier years
+  currentDateHourlyStats: HourComparisonStat[];
+  currentDateAverageYears: number; // Earlier years that edited this date — the average's denominator
   currentMonthDailyStats: TimeStat[];
   currentMonthName: string;
   weekdayHourStats: WeekdayHourStat[];

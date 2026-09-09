@@ -73,6 +73,56 @@ describe('processStatistics', () => {
         const totalHours = stats.hourlyStats.reduce((acc, curr) => acc + curr.count, 0);
         expect(totalHours).toBe(2);
     });
+
+    describe('currentDateHourlyStats (hourly pace vs. same date in earlier years)', () => {
+        // Built from local-time parts so the expectations hold in any timezone:
+        // processStatistics reads timestamps with getHours()/getDate().
+        const at = (y: number, m: number, d: number, h: number) =>
+            createContrib(new Date(y, m - 1, d, h, 0, 0).toISOString());
+
+        const refDate = new Date(2024, 9, 25, 15, 0, 0); // Oct 25 2024, 15:00 local
+
+        const contribs = [
+            at(2024, 10, 25, 14), at(2024, 10, 25, 14), // reference date itself
+            at(2024, 10, 25, 15),
+            at(2023, 10, 25, 14), at(2023, 10, 25, 14),
+            at(2023, 10, 25, 14), at(2023, 10, 25, 14), // 4 edits at 14:00
+            at(2022, 10, 25, 14), at(2022, 10, 25, 14), // 2 edits at 14:00
+            at(2021, 10, 20, 14), at(2021, 10, 20, 14), // different date, must not count
+        ];
+
+        const stats = processStatistics(mockUser, contribs, refDate);
+        const hour = (h: number) => stats.currentDateHourlyStats.find(s => s.key === h)!;
+
+        it('covers all 24 hours', () => {
+            expect(stats.currentDateHourlyStats).toHaveLength(24);
+        });
+
+        it('reports the reference date own edits as "today"', () => {
+            expect(hour(14).today).toBe(2);
+            expect(hour(15).today).toBe(1);
+            expect(hour(9).today).toBe(0);
+        });
+
+        it('averages earlier years over only the years that edited that date', () => {
+            // 2023 (4 edits) + 2022 (2 edits) at 14:00, over 2 contributing years.
+            // 2021 edited Oct 20, not Oct 25, so it neither adds edits nor dilutes the mean.
+            expect(stats.currentDateAverageYears).toBe(2);
+            expect(hour(14).average).toBe(3);
+        });
+
+        it('keeps the reference year out of its own baseline', () => {
+            // 15:00 has an edit today but none in earlier years.
+            expect(hour(15).today).toBe(1);
+            expect(hour(15).average).toBe(0);
+        });
+
+        it('reports a zero baseline when no earlier year edited that date', () => {
+            const onlyToday = processStatistics(mockUser, [at(2024, 10, 25, 14)], refDate);
+            expect(onlyToday.currentDateAverageYears).toBe(0);
+            expect(onlyToday.currentDateHourlyStats.every(s => s.average === 0)).toBe(true);
+        });
+    });
 });
 
 describe('fetchFirstEditDate', () => {
