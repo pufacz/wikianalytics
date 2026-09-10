@@ -143,7 +143,7 @@ describe('fetchCategoriesForPages', () => {
   });
 
   it('sends maxlag and asks only for visible categories', async () => {
-    const fetchMock = vi.fn(() => apiResponse([page(1, ['A'])]));
+    const fetchMock = vi.fn((_url: string) => apiResponse([page(1, ['A'])]));
     vi.stubGlobal('fetch', fetchMock);
 
     await fetchCategoriesForPages([1], 'pl');

@@ -14,10 +14,22 @@ import { WikiContrib, PageCategories, CategoryStat } from '../types';
 import { fetchCategoriesForPages, estimateRequests, CategoryFetchProgress } from '../services/categories';
 import { selectArticlePages, computeCategoryAnalysis } from '../services/categoryStats';
 
-// How many pages the first pass looks up, and how much each expansion adds.
-const INITIAL_PAGE_LIMIT = 200;
-const PAGE_LIMIT_STEP = 200;
+// The batch sizes offered, both for the first pass and for each expansion.
+const PAGE_LIMIT_STEPS = [200, 500, 1000];
 const CHART_ROWS = 15;
+
+// The step sizes worth offering when `remaining` pages are still unanalyzed.
+// The last one is clamped to what is actually left, so the final button always
+// reads as "analyze the rest" rather than promising pages that do not exist.
+const availableSteps = (remaining: number): number[] => {
+  const steps: number[] = [];
+  for (const step of PAGE_LIMIT_STEPS) {
+    const size = Math.min(step, remaining);
+    if (size > 0 && !steps.includes(size)) steps.push(size);
+    if (step >= remaining) break;
+  }
+  return steps;
+};
 
 interface CategoriesViewProps {
   contribs: WikiContrib[];
@@ -93,8 +105,6 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
     );
   }
 
-  const targetCount = Math.min(analyzedLimit ?? INITIAL_PAGE_LIMIT, articlePages.length);
-  const batches = estimateRequests(targetCount);
   const { coverage } = analysis;
   const editShare = coverage.editsTotal > 0 ? (coverage.editsCovered / coverage.editsTotal) * 100 : 0;
   const chartData = ranked.slice(0, CHART_ROWS).map(stat => ({
@@ -157,19 +167,31 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
               {articlePages.length.toLocaleString()} distinct articles in this sample
             </p>
             <p className="text-slate-400 text-sm max-w-lg mx-auto">
-              Categories are not part of contribution data, so they have to be looked up. The first pass
-              covers the {Math.min(INITIAL_PAGE_LIMIT, articlePages.length)} most-edited articles
-              — at least {batches} requests to Wikipedia, more where articles carry long category
-              lists. Results are cached and shared across every report, so repeating this later is free.
+              Categories are not part of contribution data, so they have to be looked up. The lookup
+              starts at the most recently edited article and works backwards, so a small pass already
+              describes what this editor has been working on lately. Results are cached and shared
+              across every report, so repeating this later is free.
             </p>
           </div>
-          <button
-            onClick={() => runAnalysis(INITIAL_PAGE_LIMIT)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium shadow-lg transition-all"
-          >
-            <Download className="w-4 h-4" />
-            Analyze categories
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {availableSteps(articlePages.length).map((size, idx) => (
+              <button
+                key={size}
+                onClick={() => runAnalysis(size)}
+                title={`At least ${estimateRequests(size)} requests to Wikipedia, more where articles carry long category lists`}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${idx === 0
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'
+                  : 'border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:border-blue-500/50'
+                  }`}
+              >
+                <Download className="w-4 h-4" />
+                Analyze {size.toLocaleString()}
+              </button>
+            ))}
+          </div>
+          <p className="text-slate-500 text-xs">
+            Newest edits first · at least one request per 50 articles
+          </p>
         </div>
       )}
 
@@ -211,13 +233,20 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
                 <span className="text-blue-400 font-mono ml-2">{editShare.toFixed(1)}%</span>
               </p>
               {analyzedLimit < articlePages.length && (
-                <button
-                  onClick={() => runAnalysis(analyzedLimit + PAGE_LIMIT_STEP)}
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:border-blue-500/50 transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Analyze {Math.min(PAGE_LIMIT_STEP, articlePages.length - analyzedLimit)} more
-                </button>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <span className="text-xs text-slate-500">Go further back:</span>
+                  {availableSteps(articlePages.length - analyzedLimit).map(size => (
+                    <button
+                      key={size}
+                      onClick={() => runAnalysis(analyzedLimit + size)}
+                      title={`Analyze ${size.toLocaleString()} older articles — at least ${estimateRequests(size)} more requests`}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:border-blue-500/50 transition-all"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      +{size.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">

@@ -37,13 +37,18 @@ export interface PageEditCount {
   pageid: number;
   title: string;
   count: number;
+  lastEdited: string; // Timestamp of the newest edit to this page in the sample
 }
 
-// Distinct main-namespace pages the editor touched, busiest first.
+// Distinct main-namespace pages the editor touched, most recently edited
+// first. The category lookup walks this list from the top, so it always
+// describes what the editor has been working on lately rather than what they
+// happened to hammer on years ago.
 //
-// Grouping is by page id, not title, so a page that was moved mid-history
-// stays one page. Contributions arrive newest-first, so the first title seen
-// for an id is its most recent one.
+// Grouping is by page id, not title, so a page moved mid-history stays one
+// page, and the title kept is the one carried by its newest edit. Ordering is
+// derived from the timestamps rather than from the order contributions
+// arrived in, so it holds even if a caller reshuffles the array.
 export const selectArticlePages = (contribs: WikiContrib[]): PageEditCount[] => {
   const pages = new Map<number, PageEditCount>();
 
@@ -52,15 +57,30 @@ export const selectArticlePages = (contribs: WikiContrib[]): PageEditCount[] => 
     if (contrib.ns !== 0 || !contrib.pageid) return;
 
     const existing = pages.get(contrib.pageid);
-    if (existing) {
-      existing.count++;
-    } else {
-      pages.set(contrib.pageid, { pageid: contrib.pageid, title: contrib.title, count: 1 });
+    if (!existing) {
+      pages.set(contrib.pageid, {
+        pageid: contrib.pageid,
+        title: contrib.title,
+        count: 1,
+        lastEdited: contrib.timestamp,
+      });
+      return;
+    }
+
+    existing.count++;
+    if (contrib.timestamp > existing.lastEdited) {
+      existing.lastEdited = contrib.timestamp;
+      existing.title = contrib.title;
     }
   });
 
+  // ISO 8601 UTC timestamps sort lexicographically the same way they sort
+  // chronologically, so a string compare is enough.
   return [...pages.values()].sort(
-    (a, b) => b.count - a.count || a.title.localeCompare(b.title)
+    (a, b) =>
+      b.lastEdited.localeCompare(a.lastEdited) ||
+      b.count - a.count ||
+      a.title.localeCompare(b.title)
   );
 };
 

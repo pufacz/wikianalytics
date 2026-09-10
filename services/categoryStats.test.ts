@@ -28,18 +28,41 @@ const categoryMap = (entries: [number, string, string[]][]): Map<number, PageCat
   new Map(entries.map(([pageid, title, categories]) => [pageid, { pageid, title, categories }]));
 
 describe('selectArticlePages', () => {
-  it('groups edits by page id and sorts busiest first', () => {
+  it('groups edits by page id and reports each page\'s newest edit', () => {
     const pages = selectArticlePages([
-      createContrib(1, 'Kraków'),
-      createContrib(2, 'Gdańsk'),
-      createContrib(1, 'Kraków'),
-      createContrib(1, 'Kraków'),
+      createContrib(1, 'Kraków', 0, '2023-03-01T10:00:00Z'),
+      createContrib(2, 'Gdańsk', 0, '2023-02-01T10:00:00Z'),
+      createContrib(1, 'Kraków', 0, '2023-01-05T10:00:00Z'),
+      createContrib(1, 'Kraków', 0, '2023-01-01T10:00:00Z'),
     ]);
 
     expect(pages).toEqual([
-      { pageid: 1, title: 'Kraków', count: 3 },
-      { pageid: 2, title: 'Gdańsk', count: 1 },
+      { pageid: 1, title: 'Kraków', count: 3, lastEdited: '2023-03-01T10:00:00Z' },
+      { pageid: 2, title: 'Gdańsk', count: 1, lastEdited: '2023-02-01T10:00:00Z' },
     ]);
+  });
+
+  it('orders by most recent edit, not by how many edits a page got', () => {
+    const pages = selectArticlePages([
+      createContrib(1, 'Stary faworyt', 0, '2019-01-01T10:00:00Z'),
+      createContrib(1, 'Stary faworyt', 0, '2019-01-02T10:00:00Z'),
+      createContrib(1, 'Stary faworyt', 0, '2019-01-03T10:00:00Z'),
+      createContrib(2, 'Świeży artykuł', 0, '2024-05-01T10:00:00Z'),
+    ]);
+
+    // The page edited once last year comes first; three old edits do not
+    // outrank one recent one.
+    expect(pages.map(p => p.title)).toEqual(['Świeży artykuł', 'Stary faworyt']);
+  });
+
+  it('orders by timestamp even when contributions arrive out of order', () => {
+    const pages = selectArticlePages([
+      createContrib(1, 'Najstarszy', 0, '2020-01-01T10:00:00Z'),
+      createContrib(2, 'Najnowszy', 0, '2024-01-01T10:00:00Z'),
+      createContrib(3, 'Pośredni', 0, '2022-01-01T10:00:00Z'),
+    ]);
+
+    expect(pages.map(p => p.title)).toEqual(['Najnowszy', 'Pośredni', 'Najstarszy']);
   });
 
   it('ignores everything outside the article namespace', () => {
@@ -57,14 +80,15 @@ describe('selectArticlePages', () => {
     expect(pages).toEqual([]);
   });
 
-  it('keeps a moved page as one page, under its most recent title', () => {
-    // Contributions arrive newest-first, so the new title is seen first.
+  it('keeps a moved page as one page, under the title of its newest edit', () => {
     const pages = selectArticlePages([
-      createContrib(1, 'Nowa nazwa', 0, '2023-06-01T10:00:00Z'),
       createContrib(1, 'Stara nazwa', 0, '2023-01-01T10:00:00Z'),
+      createContrib(1, 'Nowa nazwa', 0, '2023-06-01T10:00:00Z'),
     ]);
 
-    expect(pages).toEqual([{ pageid: 1, title: 'Nowa nazwa', count: 2 }]);
+    expect(pages).toEqual([
+      { pageid: 1, title: 'Nowa nazwa', count: 2, lastEdited: '2023-06-01T10:00:00Z' },
+    ]);
   });
 });
 
