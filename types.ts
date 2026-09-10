@@ -152,3 +152,44 @@ export const NAMESPACE_LABELS: Record<number, string> = {
 export const getNamespaceLabel = (ns: number): string => {
   return NAMESPACE_LABELS[ns] || `NS:${ns}`;
 };
+
+// Category Analysis Types
+
+// Categories as they are held for one page. `categories` is stripped of the
+// namespace prefix ("Kategoria:"/"Category:"), so the names read the same
+// whichever language edition the page came from.
+export interface PageCategories {
+  pageid: number;
+  title: string;
+  categories: string[];
+}
+
+// One page under a category, with the user's edit count on it.
+export interface CategoryPageRef {
+  pageid: number;
+  title: string;
+  count: number;
+}
+
+export interface CategoryStat {
+  name: string;
+  editCount: number; // The user's edits to pages carrying this category
+  pageCount: number; // Distinct pages carrying it that the user touched
+  pages: CategoryPageRef[]; // Drill-down list, busiest page first
+}
+
+// How much of the editor's article work the analysis actually speaks for.
+// Only pages we hold categories for can contribute, so this is the honest
+// denominator for every number in the view.
+export interface CategoryCoverage {
+  pagesResolved: number; // Distinct ns-0 pages we have categories for
+  pagesTotal: number;    // Distinct ns-0 pages in the whole sample
+  editsCovered: number;  // Edits landing on resolved pages
+  editsTotal: number;    // All ns-0 edits in the sample
+}
+
+export interface CategoryAnalysis {
+  categories: CategoryStat[];
+  coverage: CategoryCoverage;
+  filteredOut: number; // Categories the noise filter removed
+}

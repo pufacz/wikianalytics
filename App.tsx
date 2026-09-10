@@ -1,5 +1,5 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
-import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight, Tags } from 'lucide-react';
 import { fetchWikiUser, fetchUserContributions, fetchFirstEditDate, processStatistics } from './services/wikipedia';
 import { getNamespaceLabel, MIN_HOUR_SAMPLES, WikiContrib, WikiUser } from './types';
 import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart, HourlyPaceChart } from './components/DashboardCharts';
@@ -9,6 +9,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { storage } from './services/storage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TopPeriodsPanel } from './components/TopPeriodsPanel';
+import { CategoriesView } from './components/CategoriesView';
 
 // Wikipedia Groups Mapping (Standard names to readable labels)
 const GROUP_LABELS: Record<string, Record<string, string>> = {
@@ -72,7 +73,7 @@ export function App() {
   // Initialize state from URL
   const query = new URLSearchParams(window.location.search);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'compare'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'compare' | 'categories'>('dashboard');
   const [theme, setTheme] = useState(query.get('theme') || 'midnight');
   const analysisDateInputRef = useRef<HTMLInputElement>(null);
 
@@ -647,6 +648,16 @@ export function App() {
                 <GitCompare className="w-4 h-4" />
                 Compare Reports
               </button>
+              <button
+                onClick={() => setActiveTab('categories')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'categories'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+              >
+                <Tags className="w-4 h-4" />
+                Subject Areas
+              </button>
             </div>
           </div>
         </header>
@@ -654,6 +665,11 @@ export function App() {
         {/* COMPARISON VIEW */}
         {activeTab === 'compare' && (
           <ComparisonView />
+        )}
+
+        {/* SUBJECT AREAS VIEW */}
+        {activeTab === 'categories' && (
+          <CategoriesView contribs={rawContribs} lang={lang} username={username} />
         )}
 
         {/* DASHBOARD VIEW */}
