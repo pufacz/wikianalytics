@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { processStatistics, fetchFirstEditDate } from './wikipedia';
+import { MIN_HOUR_SAMPLES } from '../types';
 import { WikiUser, WikiContrib, Namespace } from '../types';
 
 describe('processStatistics', () => {
@@ -74,101 +75,95 @@ describe('processStatistics', () => {
         expect(totalHours).toBe(2);
     });
 
-    describe('currentDateHourlyStats (hourly pace vs. same date in earlier years)', () => {
-        // Built from local-time parts so the expectations hold in any timezone:
-        // processStatistics reads timestamps with getHours()/getDate().
+    describe('hourly pace baselines', () => {
         const at = (y: number, m: number, d: number, h: number) =>
             createContrib(new Date(y, m - 1, d, h, 0, 0).toISOString());
+        const repeat = (n: number, y: number, m: number, d: number, h: number) =>
+            Array.from({ length: n }, () => at(y, m, d, h));
 
-        const refDate = new Date(2024, 9, 25, 15, 0, 0); // Oct 25 2024, 15:00 local
+        describe('vs. the same weekday', () => {
+            // Oct 23 2024 is a Wednesday; Oct 16, Oct 9, Oct 2 and Sep 25 precede it.
+            const refDate = new Date(2024, 9, 23, 15, 0, 0);
 
-        const contribs = [
-            at(2024, 10, 25, 14), at(2024, 10, 25, 14), // reference date itself
-            at(2024, 10, 25, 15),
-            at(2023, 10, 25, 14), at(2023, 10, 25, 14),
-            at(2023, 10, 25, 14), at(2023, 10, 25, 14), // 4 edits at 14:00
-            at(2022, 10, 25, 14), at(2022, 10, 25, 14), // 2 edits at 14:00
-            at(2021, 10, 20, 14), at(2021, 10, 20, 14), // different date, must not count
-        ];
+            const stats = processStatistics(mockUser, [
+                ...repeat(2, 2024, 10, 23, 14), // the reference Wednesday itself
+                ...repeat(4, 2024, 10, 16, 14),
+                ...repeat(2, 2024, 10, 9, 14),
+                ...repeat(3, 2024, 10, 2, 14),  // 14:00 worked on 3 earlier Wednesdays
+                ...repeat(5, 2024, 10, 16, 10), // 10:00 worked on 1
+                ...repeat(2, 2024, 10, 16, 11),
+                ...repeat(4, 2024, 10, 9, 11),  // 11:00 worked on 2
+                ...repeat(1, 2024, 9, 25, 20),  // keeps this Wednesday in the pool only
+            ], refDate);
+            const hour = (h: number) => stats.currentWeekdayHourlyStats.find(s => s.key === h)!;
 
-        const stats = processStatistics(mockUser, contribs, refDate);
-        const hour = (h: number) => stats.currentDateHourlyStats.find(s => s.key === h)!;
+            it('confirms the fixture really is a Wednesday', () => {
+                expect(refDate.getDay()).toBe(3);
+            });
 
-        it('covers all 24 hours', () => {
-            expect(stats.currentDateHourlyStats).toHaveLength(24);
+            it('divides an hour by the days worked in that hour, not by every active day', () => {
+                // 4 + 2 + 3 edits at 14:00 over the 3 Wednesdays that were worked then.
+                // Dividing by all 4 active Wednesdays would understate this as 2.25.
+                expect(hour(14).samples).toBe(3);
+                expect(hour(14).average).toBe(3);
+            });
+
+            it('still reports the whole pool of earlier days for the header badge', () => {
+                expect(stats.currentWeekdayAverageDays).toBe(4);
+            });
+
+            it('withholds an average below the sample threshold', () => {
+                expect(MIN_HOUR_SAMPLES).toBe(3);
+                expect(hour(11).samples).toBe(2); // 6 edits, but only 2 days
+                expect(hour(11).average).toBe(0);
+                expect(hour(10).samples).toBe(1); // a single 5-edit session
+                expect(hour(10).average).toBe(0);
+            });
+
+            it('leaves hours that were never worked at zero', () => {
+                expect(hour(4).samples).toBe(0);
+                expect(hour(4).average).toBe(0);
+            });
+
+            it('keeps the reference day out of both the totals and the divisor', () => {
+                expect(hour(14).today).toBe(2);
+                // Reference day counted in would be 11 edits over 4 days = 2.75.
+                expect(hour(14).average).toBe(3);
+            });
         });
 
-        it('reports the reference date own edits as "today"', () => {
-            expect(hour(14).today).toBe(2);
-            expect(hour(15).today).toBe(1);
-            expect(hour(9).today).toBe(0);
-        });
+        describe('vs. the same calendar date', () => {
+            const refDate = new Date(2024, 9, 25, 15, 0, 0);
 
-        it('averages earlier years over only the years that edited that date', () => {
-            // 2023 (4 edits) + 2022 (2 edits) at 14:00, over 2 contributing years.
-            // 2021 edited Oct 20, not Oct 25, so it neither adds edits nor dilutes the mean.
-            expect(stats.currentDateAverageYears).toBe(2);
-            expect(hour(14).average).toBe(3);
-        });
+            const stats = processStatistics(mockUser, [
+                ...repeat(2, 2024, 10, 25, 14), // reference date itself
+                ...repeat(4, 2023, 10, 25, 14),
+                ...repeat(2, 2022, 10, 25, 14),
+                ...repeat(3, 2021, 10, 25, 14), // 14:00 worked in 3 earlier years
+                ...repeat(1, 2020, 10, 25, 9),  // keeps 2020 in the pool only
+                ...repeat(9, 2019, 10, 20, 14), // different date, must not count
+            ], refDate);
+            const hour = (h: number) => stats.currentDateHourlyStats.find(s => s.key === h)!;
 
-        it('keeps the reference year out of its own baseline', () => {
-            // 15:00 has an edit today but none in earlier years.
-            expect(hour(15).today).toBe(1);
-            expect(hour(15).average).toBe(0);
-        });
+            it('divides an hour by the years worked in that hour', () => {
+                expect(hour(14).samples).toBe(3);
+                expect(hour(14).average).toBe(3);
+            });
 
-        it('reports a zero baseline when no earlier year edited that date', () => {
-            const onlyToday = processStatistics(mockUser, [at(2024, 10, 25, 14)], refDate);
-            expect(onlyToday.currentDateAverageYears).toBe(0);
-            expect(onlyToday.currentDateHourlyStats.every(s => s.average === 0)).toBe(true);
-        });
-    });
+            it('still reports the whole pool of earlier years for the header badge', () => {
+                expect(stats.currentDateAverageYears).toBe(4);
+            });
 
-    describe('currentWeekdayHourlyStats (hourly pace vs. the same weekday)', () => {
-        const at = (y: number, m: number, d: number, h: number) =>
-            createContrib(new Date(y, m - 1, d, h, 0, 0).toISOString());
+            it('withholds an average below the sample threshold', () => {
+                expect(hour(9).samples).toBe(1);
+                expect(hour(9).average).toBe(0);
+            });
 
-        // Oct 23 2024 is a Wednesday; Oct 16 and Oct 9 are the two before it.
-        const refDate = new Date(2024, 9, 23, 15, 0, 0);
-
-        const contribs = [
-            at(2024, 10, 23, 14), at(2024, 10, 23, 14), // the reference Wednesday
-            at(2024, 10, 16, 14), at(2024, 10, 16, 14),
-            at(2024, 10, 16, 14), at(2024, 10, 16, 14), // 4 edits at 14:00
-            at(2024, 10, 9, 14), at(2024, 10, 9, 14),   // 2 edits at 14:00
-            at(2024, 10, 22, 14), at(2024, 10, 22, 14), // Tuesday, must not count
-        ];
-
-        const stats = processStatistics(mockUser, contribs, refDate);
-        const hour = (h: number) => stats.currentWeekdayHourlyStats.find(s => s.key === h)!;
-
-        it('confirms the fixture really is a Wednesday', () => {
-            expect(refDate.getDay()).toBe(3);
-        });
-
-        it('averages over earlier days of that weekday only', () => {
-            // 4 edits (Oct 16) + 2 (Oct 9) at 14:00 over 2 Wednesdays. The 10 Tuesday
-            // edits are excluded, and the reference Wednesday is not in the baseline:
-            // including it would give (4+2+2)/3 = 2.67.
-            expect(stats.currentWeekdayAverageDays).toBe(2);
-            expect(hour(14).average).toBe(3);
-        });
-
-        it('shows the reference day own edits as "today"', () => {
-            expect(hour(14).today).toBe(2);
-            expect(hour(15).today).toBe(0);
-        });
-
-        it('shares the "today" series with the calendar-date chart', () => {
-            // Both charts describe the same day, so only their baselines may differ.
-            expect(stats.currentWeekdayHourlyStats.map(s => s.today))
-                .toEqual(stats.currentDateHourlyStats.map(s => s.today));
-        });
-
-        it('reports a zero baseline when that weekday has no earlier edits', () => {
-            const onlyToday = processStatistics(mockUser, [at(2024, 10, 23, 14)], refDate);
-            expect(onlyToday.currentWeekdayAverageDays).toBe(0);
-            expect(onlyToday.currentWeekdayHourlyStats.every(s => s.average === 0)).toBe(true);
+            it('shares the "today" series with the weekday chart', () => {
+                // Both describe the same day, so only their baselines may differ.
+                expect(stats.currentDateHourlyStats.map(s => s.today))
+                    .toEqual(stats.currentWeekdayHourlyStats.map(s => s.today));
+            });
         });
     });
 });

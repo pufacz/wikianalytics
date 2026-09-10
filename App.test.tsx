@@ -127,8 +127,8 @@ describe('App: every chart carries a description tooltip', () => {
     // One distinctive phrase per chart, so a dropped or mis-wired tooltip fails loudly.
     const expectedTooltips: [string, RegExp][] = [
         ['Hour by Weekday', /Hour-by-hour edits on a single weekday/],
-        ['Hourly Pace vs Average', /never includes the Reference Date's own year/],
-        ['Hourly Pace vs Weekday', /cannot raise the bar it is being measured against/],
+        ['Hourly Pace vs Average', /comes round once a year/],
+        ['Hourly Pace vs Weekday', /spent editing at other times do not drag it down/],
         ['Namespace Distribution', /six largest namespaces/],
         ['Activity by Hour', /browser's local time, not UTC/],
         ['Activity by Day of Week', /raw totals, not averages/],

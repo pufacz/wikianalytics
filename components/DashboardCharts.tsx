@@ -14,7 +14,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { UserStatistics, HourComparisonStat } from '../types';
+import { UserStatistics, HourComparisonStat, MIN_HOUR_SAMPLES } from '../types';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
@@ -365,22 +365,30 @@ export const HourlyPaceChart: React.FC<{
             cursor={{ fill: 'var(--chart-grid)', opacity: 0.4 }}
             content={({ active, payload, label }) => {
               if (!active || !payload || !payload.length) return null;
-              const row = payload[0].payload as { today: number; average: number };
+              const row = payload[0].payload as HourComparisonStat;
               const diff = row.today - row.average;
+              const rated = row.samples >= MIN_HOUR_SAMPLES;
 
               return (
                 <div className="border rounded-lg p-2 text-xs shadow-xl" style={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--border-color)' }}>
                   <div className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>{label}:00</div>
                   <div style={{ color: 'var(--text-primary)' }}>Today: {row.today}</div>
-                  {hasBaseline ? (
+                  {!hasBaseline && (
+                    <div style={{ color: 'var(--text-secondary)' }}>Nothing earlier to compare</div>
+                  )}
+                  {hasBaseline && rated && (
                     <>
                       <div style={{ color: 'var(--text-secondary)' }}>Average: {row.average.toFixed(1)}</div>
+                      <div style={{ color: 'var(--text-secondary)' }}>from {row.samples} days worked at this hour</div>
                       <div className={`mt-1 font-medium ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {diff >= 0 ? '+' : ''}{diff.toFixed(1)} vs average
                       </div>
                     </>
-                  ) : (
-                    <div style={{ color: 'var(--text-secondary)' }}>Nothing earlier to compare</div>
+                  )}
+                  {hasBaseline && !rated && (
+                    <div style={{ color: 'var(--text-secondary)' }}>
+                      Only {row.samples} day{row.samples === 1 ? '' : 's'} worked at this hour — too few to average
+                    </div>
                   )}
                   {label === currentLocalHour && (
                     <div className="text-orange-400 text-[10px] mt-1 font-medium">Current Hour</div>

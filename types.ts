@@ -43,10 +43,15 @@ export interface EditedPage {
   ns: number;
 }
 
+// An hour needs edits on at least this many earlier days before its average is
+// reported. One or two stray sessions would otherwise show up as a peak.
+export const MIN_HOUR_SAMPLES = 3;
+
 export interface HourComparisonStat {
   key: number;     // Hour of day, 0-23
   today: number;   // Edits made at this hour on the reference date itself
-  average: number; // Mean edits at this hour on the same calendar date in earlier years
+  samples: number; // Earlier days that saw an edit in THIS hour — the average's divisor
+  average: number; // Mean edits per sampled day, or 0 below MIN_HOUR_SAMPLES
 }
 
 export interface WeekdayHourStat {

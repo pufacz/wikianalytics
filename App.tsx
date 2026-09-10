@@ -1,7 +1,7 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { Search, Globe, User, Clock, FileText, Calendar, AlertCircle, BarChart2, TrendingUp, Filter, Grid, List, RefreshCw, Info, CalendarDays, Download, LayoutDashboard, GitCompare, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchWikiUser, fetchUserContributions, fetchFirstEditDate, processStatistics } from './services/wikipedia';
-import { getNamespaceLabel, WikiContrib, WikiUser } from './types';
+import { getNamespaceLabel, MIN_HOUR_SAMPLES, WikiContrib, WikiUser } from './types';
 import { NamespaceChart, HourlyActivityChart, WeeklyActivityChart, DayOfMonthChart, ActivityHeatmap, CurrentMonthDailyChart, WeekdayHourlyActivityChart, HourlyPaceChart } from './components/DashboardCharts';
 import AnalysisSection from './components/AnalysisSection';
 import { ComparisonView } from './components/ComparisonView';
@@ -1058,10 +1058,10 @@ export function App() {
                         <div className="flex items-center flex-shrink-0 gap-2">
                           <span className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20 whitespace-nowrap">
                             {stats.currentWeekdayAverageDays > 0
-                              ? `Avg of ${stats.currentWeekdayAverageDays} earlier ${performanceMetrics.currentDayName}s`
+                              ? `From ${stats.currentWeekdayAverageDays} earlier ${performanceMetrics.currentDayName}s`
                               : `No earlier ${performanceMetrics.currentDayName} to compare`}
                           </span>
-                          <InfoTooltip text={`Edits hour by hour on the Reference Date. Bars are that day itself; the dashed line is the average for every earlier ${performanceMetrics.currentDayName} in the range.\n\nOnly ${performanceMetrics.currentDayName}s that actually saw an edit are averaged, and the Reference Date is left out, so today cannot raise the bar it is being measured against.\n\nThe line runs the full 24 hours while the bars stop at the current hour, so the stretch ahead shows what a typical ${performanceMetrics.currentDayName} evening still adds.`} />
+                          <InfoTooltip text={`Edits hour by hour on the Reference Date. Bars are that day itself; the dashed line is the average for that hour across earlier ${performanceMetrics.currentDayName}s.\n\nEach hour is divided only by the ${performanceMetrics.currentDayName}s actually worked in that same hour, so ${performanceMetrics.currentDayName}s spent editing at other times do not drag it down. Hover a bar for that hour's sample count.\n\nAn hour needs ${MIN_HOUR_SAMPLES} such days before a figure is reported; below that the line stays at zero rather than presenting a one-off session as typical. The Reference Date is never part of its own baseline.`} />
                         </div>
                       </div>
                       <HourlyPaceChart data={stats.currentWeekdayHourlyStats} sampleSize={stats.currentWeekdayAverageDays} referenceDate={performanceMetrics.refDate} />
@@ -1077,10 +1077,10 @@ export function App() {
                         <div className="flex items-center flex-shrink-0 gap-2">
                           <span className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20 whitespace-nowrap">
                             {stats.currentDateAverageYears > 0
-                              ? `Avg of ${stats.currentDateAverageYears} earlier year${stats.currentDateAverageYears > 1 ? 's' : ''}`
+                              ? `From ${stats.currentDateAverageYears} earlier year${stats.currentDateAverageYears > 1 ? 's' : ''}`
                               : 'No earlier year to compare'}
                           </span>
-                          <InfoTooltip text={`Edits hour by hour on ${performanceMetrics.currentDateName}. Bars are the Reference Date itself; the dashed line is the average for that same calendar date in earlier years.\n\nThe average counts only years that actually saw an edit on this date, and never includes the Reference Date's own year, so today cannot inflate its own baseline.\n\nRead it to see which hours are running above or below par, and how many edits are still needed to pull the day over its average. Note the small sample: one day per year, ${stats.currentDateAverageYears} in total here.`} />
+                          <InfoTooltip text={`Edits hour by hour on ${performanceMetrics.currentDateName}. Bars are the Reference Date itself; the dashed line is the average for that hour on the same calendar date in earlier years.\n\nEach hour is divided only by the years actually worked in that same hour. Because this date comes round once a year, most hours will fall short of the ${MIN_HOUR_SAMPLES} samples needed to report a figure and will sit at zero — the weekday chart above is the denser view.\n\nThe Reference Date's own year is never part of its baseline.`} />
                         </div>
                       </div>
                       <HourlyPaceChart data={stats.currentDateHourlyStats} sampleSize={stats.currentDateAverageYears} referenceDate={performanceMetrics.refDate} />

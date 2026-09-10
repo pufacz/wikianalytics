@@ -1,4 +1,4 @@
-import { WikiContrib, WikiUser, UserStatistics, Namespace, getNamespaceLabel } from '../types';
+import { WikiContrib, WikiUser, UserStatistics, Namespace, getNamespaceLabel, MIN_HOUR_SAMPLES } from '../types';
 
 // Increased safety limit to allow large ranges (approx 1 million edits)
 const MAX_SAFETY_REQUESTS = 2000;
@@ -189,6 +189,12 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   // Edits made on the reference date itself, hour by hour. Serves as the "today"
   // series for every pace chart, and is kept out of the baselines it is compared to.
   const referenceDayHourly: number[] = Array(24).fill(0);
+
+  // Per hour, the earlier days that saw an edit in that same hour. These are the
+  // divisors: an hour is averaged only over days when it was actually worked, so
+  // days spent editing at other times never drag it down.
+  const weekdayHourSampleDays: Set<string>[] = Array.from({ length: 24 }, () => new Set<string>());
+  const dateHourSampleYears: Set<number>[] = Array.from({ length: 24 }, () => new Set<number>());
   const currentDateHourEarlier: number[] = Array(24).fill(0);
   const currentDateEarlierYears = new Set<number>();
 
@@ -212,6 +218,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   const currentMonthName = now.toLocaleString('default', { month: 'long' });
   const currentDayOfWeek = now.getDay();
   const currentMMDD = `${String(currentMonthIndex + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
+  const currentDayKey = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
 
   contribs.forEach((c) => {
     // Namespace Stats
@@ -253,7 +260,15 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     }
     calendarDateUniqueYearsMap[mmddKey].add(year);
 
-    // 3. Hour profile for this exact calendar date
+    // 3. Per-hour sample days for the two pace baselines
+    if (day === currentDayOfWeek && dayKey !== currentDayKey) {
+      weekdayHourSampleDays[hour].add(dayKey);
+    }
+    if (mmddKey === currentMMDD && year !== currentYear) {
+      dateHourSampleYears[hour].add(year);
+    }
+
+    // 4. Hour profile for this exact calendar date
     if (mmddKey === currentMMDD) {
       if (year === currentYear) {
         referenceDayHourly[hour]++;
@@ -312,7 +327,6 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   }
 
   // 3. Generic Daily Average
-  const currentDayKey = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
   const otherDays = Object.keys(dailyEditsMap).filter(k => k !== currentDayKey);
   let avgDailyEdits = 0;
   if (otherDays.length > 0) {
@@ -336,17 +350,21 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     avgEditsOnCurrentWeekday = historicWeekdayEdits / historicWeekdayCount;
   }
 
-  // Hourly pace against the same weekday: today's hours versus the mean of every
-  // earlier occurrence of that weekday that saw an edit. Both the totals and the
-  // day count already exist, so the reference day is simply subtracted back out.
+  // Hourly pace against the same weekday. Each hour is divided by the earlier
+  // days that were worked in THAT hour, not by every active day, so an hour keeps
+  // its real intensity instead of being averaged down by days spent elsewhere.
+  // Hour totals already exist, so the reference day is just subtracted back out.
   const currentWeekdayAverageDays = historicWeekdayCount;
-  const currentWeekdayHourlyStats = Array.from({ length: 24 }, (_, h) => ({
-    key: h,
-    today: referenceDayHourly[h],
-    average: currentWeekdayAverageDays > 0
-      ? (weekdayHourMatrix[currentDayOfWeek][h] - referenceDayHourly[h]) / currentWeekdayAverageDays
-      : 0,
-  }));
+  const currentWeekdayHourlyStats = Array.from({ length: 24 }, (_, h) => {
+    const samples = weekdayHourSampleDays[h].size;
+    const earlierEdits = weekdayHourMatrix[currentDayOfWeek][h] - referenceDayHourly[h];
+    return {
+      key: h,
+      today: referenceDayHourly[h],
+      samples,
+      average: samples >= MIN_HOUR_SAMPLES ? earlierEdits / samples : 0,
+    };
+  });
 
   // 5. Specific Calendar Date Average (e.g., Average for Oct 25ths)
   let avgEditsOnCurrentDate = 0;
@@ -410,15 +428,19 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     }
   }
 
-  // Hourly pace for the reference date: what was done today at each hour, against
-  // the mean of earlier years that edited this same calendar date. Only years with
-  // at least one edit that day count, so long gaps do not flatten the baseline.
+  // Hourly pace for the reference date, against the same calendar date in earlier
+  // years. Same per-hour divisor rule as the weekday chart: only years that were
+  // worked in that hour count. The pool below feeds the header badge.
   const currentDateAverageYears = currentDateEarlierYears.size;
-  const currentDateHourlyStats = Array.from({ length: 24 }, (_, h) => ({
-    key: h,
-    today: referenceDayHourly[h],
-    average: currentDateAverageYears > 0 ? currentDateHourEarlier[h] / currentDateAverageYears : 0,
-  }));
+  const currentDateHourlyStats = Array.from({ length: 24 }, (_, h) => {
+    const samples = dateHourSampleYears[h].size;
+    return {
+      key: h,
+      today: referenceDayHourly[h],
+      samples,
+      average: samples >= MIN_HOUR_SAMPLES ? currentDateHourEarlier[h] / samples : 0,
+    };
+  });
 
   const editedPages = Object.entries(pageCounts)
     .map(([title, data]) => ({ title, count: data.count, ns: data.ns }))
