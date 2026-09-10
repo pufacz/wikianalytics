@@ -4,6 +4,7 @@ import {
   selectArticlePages,
   computeCategoryAnalysis,
   isNoiseCategory,
+  rankCategories,
 } from './categoryStats';
 
 const createContrib = (
@@ -183,6 +184,38 @@ describe('computeCategoryAnalysis', () => {
   });
 });
 
+describe('rankCategories', () => {
+  const stat = (name: string, editCount: number, pageCount: number) => ({
+    name, editCount, pageCount, pages: [],
+  });
+
+  it('orders by edits when asked for edits', () => {
+    const ranked = rankCategories([stat('A', 10, 9), stat('B', 50, 2), stat('C', 30, 5)], 'edits');
+    expect(ranked.map(c => c.name)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('orders by pages when asked for pages', () => {
+    const ranked = rankCategories([stat('A', 10, 9), stat('B', 50, 2), stat('C', 30, 5)], 'pages');
+    expect(ranked.map(c => c.name)).toEqual(['A', 'C', 'B']);
+  });
+
+  it('breaks a tie on pages with the edit count', () => {
+    const ranked = rankCategories([stat('Fewer edits', 5, 7), stat('More edits', 90, 7)], 'pages');
+    expect(ranked.map(c => c.name)).toEqual(['More edits', 'Fewer edits']);
+  });
+
+  it('breaks a full tie on the name, so the order is stable', () => {
+    const ranked = rankCategories([stat('Zebra', 4, 2), stat('Antylopa', 4, 2)], 'pages');
+    expect(ranked.map(c => c.name)).toEqual(['Antylopa', 'Zebra']);
+  });
+
+  it('leaves the array it was given alone', () => {
+    const input = [stat('A', 1, 9), stat('B', 50, 1)];
+    rankCategories(input, 'pages');
+    expect(input.map(c => c.name)).toEqual(['A', 'B']);
+  });
+});
+
 describe('isNoiseCategory', () => {
   it('matches year-indexed and maintenance categories', () => {
     expect(isNoiseCategory('Urodzeni w 1950')).toBe(true);
@@ -190,6 +223,19 @@ describe('isNoiseCategory', () => {
     expect(isNoiseCategory('Artykuły wymagające uzupełnienia źródeł')).toBe(true);
     expect(isNoiseCategory('1950 births')).toBe(true);
     expect(isNoiseCategory('Living people')).toBe(true);
+  });
+
+  it('matches birth and death categories indexed by century, not just by year', () => {
+    // plwiki indexes older biographies by Roman-numeral century.
+    expect(isNoiseCategory('Urodzeni w XI wieku')).toBe(true);
+    expect(isNoiseCategory('Urodzeni w IX wieku p.n.e.')).toBe(true);
+    expect(isNoiseCategory('Zmarli w X wieku')).toBe(true);
+    expect(isNoiseCategory('Zmarli w V wieku p.n.e.')).toBe(true);
+  });
+
+  it('keeps place of birth, which does say something about the subject', () => {
+    expect(isNoiseCategory('Ludzie urodzeni w Warszawie')).toBe(false);
+    expect(isNoiseCategory('Ludzie urodzeni w Krakowie')).toBe(false);
   });
 
   it('leaves topical categories alone', () => {

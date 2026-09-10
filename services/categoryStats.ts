@@ -1,13 +1,16 @@
-import { WikiContrib, PageCategories, CategoryStat, CategoryAnalysis } from '../types';
+import { WikiContrib, PageCategories, CategoryStat, CategoryAnalysis, CategoryMetric } from '../types';
 
 // Categories that sit on articles without saying anything about their subject:
 // year-of-birth indexes, maintenance backlogs, project bookkeeping. They are
 // not flagged hidden on plwiki, so the API happily returns them and they would
 // otherwise dominate the ranking of anyone who writes biographies.
 export const DEFAULT_CATEGORY_NOISE_PATTERNS: RegExp[] = [
-  // Polish Wikipedia
-  /^Urodzeni w \d/,
-  /^Zmarli w \d/,
+  // Polish Wikipedia. Birth and death categories are indexed by year OR by
+  // Roman-numeral century ("Urodzeni w XI wieku"), so neither form may require
+  // a digit. Place of birth is a separate tree ("Ludzie urodzeni w Warszawie")
+  // and stays: it says something about the subject.
+  /^Urodzeni w /,
+  /^Zmarli w /,
   /^Nieznana data /,
   /^Artykuły /,
   /^Strony /,
@@ -84,6 +87,18 @@ export const selectArticlePages = (contribs: WikiContrib[]): PageEditCount[] => 
   );
 };
 
+// Orders a ranking by the chosen measure. The other measure breaks ties, so
+// two categories on equal footing still come out in a stable, sensible order.
+export const rankCategories = (
+  categories: CategoryStat[],
+  metric: CategoryMetric
+): CategoryStat[] =>
+  [...categories].sort((a, b) =>
+    metric === 'pages'
+      ? b.pageCount - a.pageCount || b.editCount - a.editCount || a.name.localeCompare(b.name)
+      : b.editCount - a.editCount || b.pageCount - a.pageCount || a.name.localeCompare(b.name)
+  );
+
 export interface CategoryAnalysisOptions {
   includeNoise?: boolean;
   patterns?: RegExp[];
@@ -132,12 +147,9 @@ export const computeCategoryAnalysis = (
   kept.forEach(stat => {
     stat.pages.sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
   });
-  kept.sort(
-    (a, b) => b.editCount - a.editCount || b.pageCount - a.pageCount || a.name.localeCompare(b.name)
-  );
 
   return {
-    categories: kept,
+    categories: rankCategories(kept, 'edits'),
     // Coverage describes the lookup, not the filter, so it stays the same
     // whether or not noise categories are on screen.
     coverage: {

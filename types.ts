@@ -188,6 +188,9 @@ export interface CategoryCoverage {
   editsTotal: number;    // All ns-0 edits in the sample
 }
 
+// Which measure a category ranking is ordered by.
+export type CategoryMetric = 'edits' | 'pages';
+
 export interface CategoryAnalysis {
   categories: CategoryStat[];
   coverage: CategoryCoverage;

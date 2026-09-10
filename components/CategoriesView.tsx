@@ -9,10 +9,10 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { Tags, Loader2, AlertCircle, ExternalLink, Download, Eye, EyeOff, ChevronRight } from 'lucide-react';
-import { WikiContrib, PageCategories, CategoryStat } from '../types';
+import { Tags, Loader2, AlertCircle, ExternalLink, Download, Eye, EyeOff, ChevronRight, ArrowDown } from 'lucide-react';
+import { WikiContrib, PageCategories, CategoryStat, CategoryMetric } from '../types';
 import { fetchCategoriesForPages, estimateRequests, CategoryFetchProgress } from '../services/categories';
-import { selectArticlePages, computeCategoryAnalysis } from '../services/categoryStats';
+import { selectArticlePages, computeCategoryAnalysis, rankCategories } from '../services/categoryStats';
 
 // The batch sizes offered, both for the first pass and for each expansion.
 const PAGE_LIMIT_STEPS = [200, 500, 1000];
@@ -37,8 +37,6 @@ interface CategoriesViewProps {
   username: string;
 }
 
-type Metric = 'edits' | 'pages';
-
 const truncate = (text: string, max = 30) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, username }) => {
@@ -48,7 +46,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
   const [progress, setProgress] = useState<CategoryFetchProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [metric, setMetric] = useState<Metric>('edits');
+  const [metric, setMetric] = useState<CategoryMetric>('edits');
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -61,13 +59,10 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
     [contribs, categoryMap, showAll]
   );
 
-  const ranked = useMemo(() => {
-    const list = [...analysis.categories];
-    if (metric === 'pages') {
-      list.sort((a, b) => b.pageCount - a.pageCount || b.editCount - a.editCount || a.name.localeCompare(b.name));
-    }
-    return list;
-  }, [analysis, metric]);
+  const ranked = useMemo(
+    () => rankCategories(analysis.categories, metric),
+    [analysis, metric]
+  );
 
   const selectedStat: CategoryStat | undefined = useMemo(
     () => ranked.find(stat => stat.name === selected),
@@ -109,7 +104,6 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
   const editShare = coverage.editsTotal > 0 ? (coverage.editsCovered / coverage.editsTotal) * 100 : 0;
   const chartData = ranked.slice(0, CHART_ROWS).map(stat => ({
     name: stat.name,
-    label: truncate(stat.name),
     value: value(stat),
   }));
 
@@ -130,7 +124,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
         {analyzedLimit !== null && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-1">
-              {(['edits', 'pages'] as Metric[]).map(m => (
+              {(['edits', 'pages'] as CategoryMetric[]).map(m => (
                 <button
                   key={m}
                   onClick={() => setMetric(m)}
@@ -272,8 +266,9 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
                       <XAxis type="number" tick={{ fill: 'var(--chart-label)', fontSize: 11 }} />
                       <YAxis
                         type="category"
-                        dataKey="label"
+                        dataKey="name"
                         width={170}
+                        tickFormatter={truncate}
                         tick={{ fill: 'var(--chart-label)', fontSize: 11 }}
                       />
                       <Tooltip
@@ -304,8 +299,20 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
                       <thead className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-wider sticky top-0">
                         <tr>
                           <th className="px-4 py-2 font-medium">Category</th>
-                          <th className="px-4 py-2 font-medium text-right">Edits</th>
-                          <th className="px-4 py-2 font-medium text-right">Pages</th>
+                          {([['edits', 'Edits'], ['pages', 'Pages']] as [CategoryMetric, string][]).map(([key, label]) => (
+                            <th
+                              key={key}
+                              onClick={() => setMetric(key)}
+                              title={`Sort by ${label.toLowerCase()}`}
+                              className={`px-4 py-2 font-medium text-right cursor-pointer select-none transition-colors ${metric === key ? 'text-blue-400' : 'hover:text-slate-200'
+                                }`}
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                {label}
+                                <ArrowDown className={`w-3 h-3 ${metric === key ? 'opacity-100' : 'opacity-0'}`} />
+                              </span>
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
@@ -319,10 +326,10 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ contribs, lang, 
                               <span className="text-slate-500 mr-2 text-[10px]">{idx + 1}.</span>
                               {stat.name}
                             </td>
-                            <td className="px-4 py-2.5 text-right font-mono text-blue-400 font-bold">
+                            <td className={`px-4 py-2.5 text-right font-mono ${metric === 'edits' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}>
                               {stat.editCount.toLocaleString()}
                             </td>
-                            <td className="px-4 py-2.5 text-right font-mono text-slate-400">
+                            <td className={`px-4 py-2.5 text-right font-mono ${metric === 'pages' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}>
                               {stat.pageCount.toLocaleString()}
                             </td>
                           </tr>
