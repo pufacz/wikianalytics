@@ -203,3 +203,66 @@ describe('App: browsing the reference date with arrow keys', () => {
         expect(screen.queryByLabelText('Analysis Ref Date')).toBeNull();
     });
 });
+
+describe('App: the sticky header shows the day under analysis', () => {
+    const contribs: WikiContrib[] = [
+        // Three edits on the reference day, one the day before.
+        { userid: 1, user: 'Gdarin', pageid: 1, revid: 1, parentid: 0, ns: 0, title: 'A', timestamp: '2024-03-14T09:00:00Z', comment: 'e', size: 10 },
+        { userid: 1, user: 'Gdarin', pageid: 2, revid: 2, parentid: 0, ns: 0, title: 'B', timestamp: '2024-03-14T10:00:00Z', comment: 'e', size: 10 },
+        { userid: 1, user: 'Gdarin', pageid: 3, revid: 3, parentid: 0, ns: 0, title: 'C', timestamp: '2024-03-14T11:00:00Z', comment: 'e', size: 10 },
+        { userid: 1, user: 'Gdarin', pageid: 4, revid: 4, parentid: 0, ns: 0, title: 'D', timestamp: '2024-03-13T11:00:00Z', comment: 'e', size: 10 },
+    ];
+
+    const renderDashboard = async () => {
+        vi.mocked(fetchFirstEditDate).mockResolvedValue('2024-03-01');
+        vi.mocked(fetchWikiUser).mockResolvedValue({
+            userid: 1, name: 'Gdarin', editcount: 4, registration: '2003-09-11T00:00:00Z', groups: [],
+        });
+        vi.mocked(fetchUserContributions).mockResolvedValue(contribs);
+
+        render(<App />);
+        await act(async () => { await Promise.resolve(); });
+
+        fireEvent.change(screen.getByPlaceholderText('Enter Username...'), { target: { value: 'Gdarin' } });
+        fireEvent.change(screen.getByLabelText('Analysis Ref Date'), { target: { value: '2024-03-14' } });
+        fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+
+        await screen.findByText('Namespace Distribution', {}, { timeout: 3000 });
+    };
+
+    const header = () => screen.getByRole('banner');
+
+    it('names the editor, the date and that day\'s edit count', async () => {
+        await renderDashboard();
+
+        expect(header()).toHaveTextContent('Gdarin');
+        expect(header()).toHaveTextContent('Thu, Mar 14, 2024');
+        expect(header()).toHaveTextContent(/3\s*edits/);
+    });
+
+    it('follows the reference date as it is stepped', async () => {
+        await renderDashboard();
+
+        fireEvent.click(screen.getByLabelText('Previous day'));
+
+        await waitFor(() => expect(header()).toHaveTextContent('Wed, Mar 13, 2024'));
+        expect(header()).toHaveTextContent(/1\s*edits/);
+    });
+
+    it('stays put while the page scrolls', async () => {
+        await renderDashboard();
+        expect(header().className).toMatch(/\bsticky\b/);
+        expect(header().className).toMatch(/\btop-0\b/);
+    });
+
+    it('hides the date once another tab is active', async () => {
+        await renderDashboard();
+        expect(header()).toHaveTextContent('Thu, Mar 14, 2024');
+
+        fireEvent.click(screen.getByText('Subject Areas'));
+
+        expect(header()).not.toHaveTextContent('Thu, Mar 14, 2024');
+        // The tab switcher itself stays in the bar.
+        expect(header()).toHaveTextContent('Live Analysis');
+    });
+});

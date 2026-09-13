@@ -76,6 +76,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'compare' | 'categories'>('dashboard');
   const [theme, setTheme] = useState(query.get('theme') || 'midnight');
   const analysisDateInputRef = useRef<HTMLInputElement>(null);
+  const headerDateInputRef = useRef<HTMLInputElement>(null);
 
   const [username, setUsername] = useState(query.get('user') || '');
   const [lang, setLang] = useState(query.get('lang') || 'pl');
@@ -186,6 +187,21 @@ export function App() {
     return processStatistics(user, filteredContribs, refDateObj);
   }, [user, filteredContribs, analysisDate]);
 
+  // The reference date spelled out for the header bar. Parsed field by field
+  // rather than through Date(string): a bare "YYYY-MM-DD" parses as UTC, which
+  // lands on the previous day for anyone west of Greenwich.
+  const referenceDateLabel = useMemo(() => {
+    const [y, m, d] = analysisDate.split('-').map(Number);
+    if (!y || !m || !d) return analysisDate;
+
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }, [analysisDate]);
+
   // Initial Analysis
   const performAnalysis = async (targetStartDate: string, targetEndDate: string) => {
     if (!username.trim()) return;
@@ -232,6 +248,17 @@ export function App() {
       setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Safari has no showPicker(), and Firefox only gained it in 101; focusing the
+  // field is the next best thing there rather than the button doing nothing.
+  const openDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.focus();
     }
   };
 
@@ -620,42 +647,83 @@ export function App() {
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10 space-y-6">
 
-        {/* Header & Tabs */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-2">
-          <div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-teal-400">
-              WikiAnalytics
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">Deep dive into Wikipedia editor habits</p>
-          </div>
+        {/* Sticky bar: brand, the day under analysis, and the tab switcher.
+            Pulled out to the container's edges so it covers the content
+            scrolling beneath it, and up by the container's own top padding so
+            it starts flush against the top of the page. */}
+        <header
+          className="sticky top-0 z-30 -mx-4 md:-mx-8 -mt-4 md:-mt-8 px-4 md:px-8 py-3 border-b backdrop-blur-xl"
+          style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+        >
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+            <div className="flex items-center gap-4 min-w-0">
+              <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-teal-400 shrink-0">
+                WikiAnalytics
+              </h1>
 
-          {/* Theme & Tab Switcher */}
-          <div className="flex flex-col md:flex-row gap-4 items-end md:items-center">
-            {/* Theme Selector */}
-            <div
-              className="flex items-center gap-1 p-1 rounded-xl border shadow-lg backdrop-blur"
-              style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}
-            >
-              {[
-                { id: 'midnight', icon: '🌑', label: 'Midnight' },
-                { id: 'forest', icon: '🌲', label: 'Forest' },
-                { id: 'crimson', icon: '🌹', label: 'Crimson' },
-                { id: 'nord', icon: '❄️', label: 'Nord' },
-                { id: 'light', icon: '☀️', label: 'Light' }
-              ].map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setTheme(t.id)}
-                  title={t.label}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${theme === t.id ? 'text-white shadow-md scale-110' : 'hover:bg-white/10'}`}
-                  style={{ backgroundColor: theme === t.id ? 'var(--accent-color)' : 'transparent', color: theme === t.id ? '#ffffff' : 'var(--text-secondary)' }}
+              {/* The day being analysed, kept in view while the charts scroll
+                  past. Only on the dashboard: the reference date has no
+                  bearing on the comparison or category views. */}
+              {activeTab === 'dashboard' && stats && (
+                <div
+                  className="relative flex items-center rounded-xl border min-w-0"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}
                 >
-                  <span className="text-sm">{t.icon}</span>
-                </button>
-              ))}
-            </div>
+                  <button
+                    type="button"
+                    onClick={handlePrevDate}
+                    title="Previous day (Left arrow)"
+                    aria-label="Previous day"
+                    className="px-1.5 py-2 text-slate-500 hover:text-blue-400 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
 
-            {/* Tab Switcher */}
+                  <button
+                    type="button"
+                    onClick={() => openDatePicker(headerDateInputRef.current)}
+                    title="Pick a date"
+                    className="flex items-center gap-2 px-1.5 py-1 text-sm min-w-0 group"
+                  >
+                    <span className="hidden sm:inline font-semibold text-slate-200 truncate max-w-[12rem]">
+                      {stats.user.name}
+                    </span>
+                    <span className="hidden sm:inline text-slate-600">·</span>
+                    <span className="text-slate-300 whitespace-nowrap group-hover:text-blue-400 transition-colors">
+                      {referenceDateLabel}
+                    </span>
+                    <span className="text-slate-600">·</span>
+                    <span className="font-mono font-bold text-blue-400 whitespace-nowrap">
+                      {stats.thisDayEdits.toLocaleString()}
+                    </span>
+                    <span className="text-slate-500 text-xs">edits</span>
+                  </button>
+
+                  {/* Backs the button above: showPicker() needs a real, rendered
+                      date input, and the one in the form below is often scrolled
+                      out of view by the time this bar is used. */}
+                  <input
+                    type="date"
+                    ref={headerDateInputRef}
+                    value={analysisDate}
+                    onChange={(e) => setAnalysisDate(e.target.value)}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="absolute left-1/2 bottom-0 w-px h-px opacity-0 pointer-events-none"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleNextDate}
+                    title="Next day (Right arrow)"
+                    aria-label="Next day"
+                    className="px-1.5 py-2 text-slate-500 hover:text-blue-400 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
 
             <div className="flex bg-slate-900/50 backdrop-blur rounded-xl p-1.5 border border-slate-800 shadow-lg">
               <button
@@ -691,6 +759,34 @@ export function App() {
             </div>
           </div>
         </header>
+
+        {/* Tagline and theme, free to scroll away */}
+        <div className="flex flex-wrap justify-between items-center gap-4 -mt-2">
+          <p className="text-slate-400 text-sm">Deep dive into Wikipedia editor habits</p>
+          {/* Theme Selector */}
+          <div
+            className="flex items-center gap-1 p-1 rounded-xl border shadow-lg backdrop-blur"
+            style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}
+          >
+            {[
+              { id: 'midnight', icon: '🌑', label: 'Midnight' },
+              { id: 'forest', icon: '🌲', label: 'Forest' },
+              { id: 'crimson', icon: '🌹', label: 'Crimson' },
+              { id: 'nord', icon: '❄️', label: 'Nord' },
+              { id: 'light', icon: '☀️', label: 'Light' }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                title={t.label}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${theme === t.id ? 'text-white shadow-md scale-110' : 'hover:bg-white/10'}`}
+                style={{ backgroundColor: theme === t.id ? 'var(--accent-color)' : 'transparent', color: theme === t.id ? '#ffffff' : 'var(--text-secondary)' }}
+              >
+                <span className="text-sm">{t.icon}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* COMPARISON VIEW */}
         {activeTab === 'compare' && (
@@ -830,7 +926,7 @@ export function App() {
                       />
                       <button
                         type="button"
-                        onClick={() => analysisDateInputRef.current?.showPicker()}
+                        onClick={() => openDatePicker(analysisDateInputRef.current)}
                         className="pr-2 py-1.5 text-slate-500 hover:text-blue-400 transition-colors mt-2"
                         title="Pick from calendar"
                       >
