@@ -11,12 +11,41 @@ export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 export const resolveModel = (configured?: string): string =>
   configured?.trim() || DEFAULT_GEMINI_MODEL;
 
+// The model actually in use, for labelling the generated output.
+export const activeModel = (): string => resolveModel(process.env.GEMINI_MODEL);
+
+// Pulls the readable part out of whatever the SDK threw. A failed call usually
+// arrives with the API's JSON body as the message text, so the useful sentence
+// is buried in a blob the reader should never have to see.
+export const describeGeminiError = (error: unknown): string => {
+  const raw = error instanceof Error ? error.message
+    : typeof error === 'string' ? error
+    : '';
+  if (!raw.trim()) return 'Unknown error';
+
+  const jsonStart = raw.indexOf('{');
+  if (jsonStart !== -1) {
+    try {
+      const api = JSON.parse(raw.slice(jsonStart))?.error;
+      if (api?.message) {
+        const code = [api.code, api.status].filter(Boolean).join(' ');
+        return code ? `${api.message} (${code})` : api.message;
+      }
+    } catch {
+      // Not JSON after all — the raw text is the best we have.
+    }
+  }
+  return raw;
+};
+
 const initGemini = () => {
-  // Assuming process.env.API_KEY is available in the environment
+  // Substituted at build time by vite.config, so a key added to .env.local
+  // after the bundle was built does not apply until it is rebuilt.
   const apiKey = process.env.API_KEY || '';
   if (!apiKey) {
-    console.warn("API Key not found in environment variables.");
-    return null;
+    throw new Error(
+      'No Gemini API key configured. Set GEMINI_API_KEY in .env.local and restart the dev server — the key is built into the bundle, not read at runtime.'
+    );
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -29,7 +58,6 @@ export const generateUserAnalysis = async (
   customFocus?: string
 ): Promise<string> => {
   const ai = initGemini();
-  if (!ai) return "AI Analysis unavailable: Missing API Key.";
 
   // Construct a prompt based on the stats
   const topNs = stats.namespaceStats.slice(0, 3).map(n => `${n.name} (${n.percentage.toFixed(1)}%)`).join(', ');
@@ -77,15 +105,22 @@ export const generateUserAnalysis = async (
     
   prompt += `\nKeep the tone objective and analytical.`;
 
+  let response;
   try {
-    const response = await ai.models.generateContent({
-      model: resolveModel(process.env.GEMINI_MODEL),
+    response = await ai.models.generateContent({
+      model: activeModel(),
       contents: prompt,
     });
-    
-    return response.text || "No analysis could be generated.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Failed to generate AI analysis at this time.";
+    // Rethrown rather than returned as text: the caller has no way to tell an
+    // error sentence from an analysis, and used to render one as the other.
+    throw new Error(describeGeminiError(error), { cause: error });
   }
+
+  const text = response.text?.trim();
+  if (!text) {
+    throw new Error(`The model (${activeModel()}) returned an empty response.`);
+  }
+  return text;
 };
