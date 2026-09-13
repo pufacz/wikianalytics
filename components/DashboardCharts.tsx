@@ -344,23 +344,39 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
 // figure above it is a real average.
 export const sampleColor = (samples: number): string => {
   if (samples >= MIN_HOUR_SAMPLES) return '#10b981'; // emerald — reported
-  if (samples <= 0) return '#ef4444';                // red — nothing to average
-  if (samples === 1) return '#f97316';               // orange — a single day
-  return '#eab308';                                  // yellow — still short
+  if (samples <= 0) return '#e11d48';                // rose — nothing to average
+  if (samples === 1) return '#f59e0b';               // amber — a single day
+  return '#fde047';                                  // yellow — still short
 };
 
-// `radius` rather than `r`: recharts clones this element with its own props,
-// and an `r` of ours would be overwritten on the active dot.
+// Size carries the same scale as colour. Four steps along a red-to-green arc
+// cannot be told apart by hue alone at any accessible contrast — the two ends
+// collapse for red-green colour blindness, and squeezing them into a band that
+// reads on both light and dark surfaces makes amber and yellow identical. So
+// hue is never the only channel: the dot also grows with its sample count,
+// which survives greyscale, colour blindness and a washed-out screen alike.
+export const sampleRadius = (samples: number): number => {
+  if (samples >= MIN_HOUR_SAMPLES) return 5;
+  if (samples <= 0) return 2.5;
+  if (samples === 1) return 3.2;
+  return 3.9;
+};
+
+// `boost` rather than `r`: recharts clones this element with its own props, so
+// an `r` of ours would be overwritten — and a fixed active-dot radius would
+// throw away the size encoding exactly when the reader is looking closest.
 const SampleDot = (props: any) => {
-  const { cx, cy, payload, radius } = props;
+  const { cx, cy, payload, boost = 0 } = props;
   if (typeof cx !== 'number' || typeof cy !== 'number') return <g />;
+
+  const samples = payload?.samples ?? 0;
 
   return (
     <circle
       cx={cx}
       cy={cy}
-      r={radius ?? 3.5}
-      fill={sampleColor(payload?.samples ?? 0)}
+      r={sampleRadius(samples) + boost}
+      fill={sampleColor(samples)}
       stroke="var(--chart-tooltip-bg)"
       strokeWidth={1.5}
     />
@@ -446,7 +462,7 @@ export const HourlyPaceChart: React.FC<{
               strokeWidth={2}
               strokeDasharray="4 3"
               dot={<SampleDot />}
-              activeDot={<SampleDot radius={5.5} />}
+              activeDot={<SampleDot boost={2} />}
             />
           )}
         </ComposedChart>

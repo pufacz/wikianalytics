@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { sampleColor } from './DashboardCharts';
+import { sampleColor, sampleRadius } from './DashboardCharts';
 import { MIN_HOUR_SAMPLES } from '../types';
 
 describe('sampleColor', () => {
-    const RED = '#ef4444';
-    const ORANGE = '#f97316';
-    const YELLOW = '#eab308';
+    const RED = '#e11d48';
+    const ORANGE = '#f59e0b';
+    const YELLOW = '#fde047';
     const GREEN = '#10b981';
 
     it('warns in red when nothing stands behind the average', () => {
@@ -29,5 +29,23 @@ describe('sampleColor', () => {
 
     it('keeps a sane colour for counts that cannot occur', () => {
         expect(sampleColor(-1)).toBe(RED);
+    });
+});
+
+describe('sampleRadius', () => {
+    it('grows with the sample count, so size repeats what colour says', () => {
+        const steps = [0, 1, 2, MIN_HOUR_SAMPLES].map(sampleRadius);
+        const ascending = [...steps].sort((a, b) => a - b);
+        expect(steps).toEqual(ascending);
+        expect(new Set(steps).size).toBe(steps.length);
+    });
+
+    it('tops out at the same threshold the colour does', () => {
+        expect(sampleRadius(MIN_HOUR_SAMPLES)).toBe(sampleRadius(MIN_HOUR_SAMPLES + 99));
+        expect(sampleRadius(MIN_HOUR_SAMPLES - 1)).toBeLessThan(sampleRadius(MIN_HOUR_SAMPLES));
+    });
+
+    it('stays positive for counts that cannot occur', () => {
+        expect(sampleRadius(-1)).toBeGreaterThan(0);
     });
 });
