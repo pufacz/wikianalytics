@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { sampleColor, sampleRadius } from './DashboardCharts';
+import { render } from '@testing-library/react';
+import { sampleColor, sampleRadius, SampleDot } from './DashboardCharts';
 import { MIN_HOUR_SAMPLES } from '../types';
 
 describe('sampleColor', () => {
@@ -47,5 +48,45 @@ describe('sampleRadius', () => {
 
     it('stays positive for counts that cannot occur', () => {
         expect(sampleRadius(-1)).toBeGreaterThan(0);
+    });
+});
+
+describe('SampleDot', () => {
+    const draw = (props: Record<string, unknown>) =>
+        render(<svg><SampleDot cx={10} cy={20} payload={{ key: 9, samples: 5 }} {...props} /></svg>);
+
+    it('rings the hour the analysis is anchored to', () => {
+        const { queryByTestId } = draw({ currentHour: 9 });
+        expect(queryByTestId('current-hour-ring')).not.toBeNull();
+    });
+
+    it('leaves every other hour unringed', () => {
+        const { queryByTestId } = draw({ currentHour: 14 });
+        expect(queryByTestId('current-hour-ring')).toBeNull();
+    });
+
+    it('draws no ring when there is no current hour to mark', () => {
+        const { queryByTestId } = draw({});
+        expect(queryByTestId('current-hour-ring')).toBeNull();
+    });
+
+    it('marks the hour by outline, never by repainting the sample colour', () => {
+        // The fill still has to report the sample count: the ring is a second
+        // channel, not a replacement for the scale.
+        const { container } = draw({ currentHour: 9 });
+        const fill = container.querySelectorAll('circle')[1];
+        expect(fill.getAttribute('fill')).toBe(sampleColor(5));
+    });
+
+    it('grows the ring with the dot it surrounds', () => {
+        const plain = draw({ currentHour: 9 }).container.querySelector('[data-testid="current-hour-ring"]');
+        const hovered = draw({ currentHour: 9, boost: 2 }).container.querySelector('[data-testid="current-hour-ring"]');
+
+        expect(Number(hovered!.getAttribute('r'))).toBeGreaterThan(Number(plain!.getAttribute('r')));
+    });
+
+    it('renders nothing positioned off the plot', () => {
+        const { container } = draw({ cx: undefined, cy: undefined, currentHour: 9 });
+        expect(container.querySelectorAll('circle')).toHaveLength(0);
     });
 });

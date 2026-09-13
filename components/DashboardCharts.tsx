@@ -365,21 +365,42 @@ export const sampleRadius = (samples: number): number => {
 // `boost` rather than `r`: recharts clones this element with its own props, so
 // an `r` of ours would be overwritten — and a fixed active-dot radius would
 // throw away the size encoding exactly when the reader is looking closest.
-const SampleDot = (props: any) => {
-  const { cx, cy, payload, boost = 0 } = props;
+//
+// The reference date's own hour gets a ring rather than a colour of its own.
+// The orange the bars use for it measures delta E 9.6 against this scale's
+// amber — below the 15 floor, so as a dot it would read as "one day" instead
+// of "now". An outline in text ink is a channel the scale does not use at all,
+// and being a theme variable it stays legible whichever theme is on.
+export const SampleDot = (props: any) => {
+  const { cx, cy, payload, boost = 0, currentHour } = props;
   if (typeof cx !== 'number' || typeof cy !== 'number') return <g />;
 
   const samples = payload?.samples ?? 0;
+  const radius = sampleRadius(samples) + boost;
+  const isCurrentHour = currentHour !== undefined && payload?.key === currentHour;
 
   return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={sampleRadius(samples) + boost}
-      fill={sampleColor(samples)}
-      stroke="var(--chart-tooltip-bg)"
-      strokeWidth={1.5}
-    />
+    <g>
+      {isCurrentHour && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius + 3}
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth={1.5}
+          data-testid="current-hour-ring"
+        />
+      )}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill={sampleColor(samples)}
+        stroke="var(--chart-tooltip-bg)"
+        strokeWidth={1.5}
+      />
+    </g>
   );
 };
 
@@ -461,8 +482,8 @@ export const HourlyPaceChart: React.FC<{
               stroke="#94a3b8"
               strokeWidth={2}
               strokeDasharray="4 3"
-              dot={<SampleDot />}
-              activeDot={<SampleDot boost={2} />}
+              dot={<SampleDot currentHour={currentLocalHour} />}
+              activeDot={<SampleDot boost={2} currentHour={currentLocalHour} />}
             />
           )}
         </ComposedChart>
