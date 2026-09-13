@@ -247,6 +247,36 @@ export function App() {
     setAnalysisDate(d.toISOString().split('T')[0]);
   };
 
+  // Left/Right steps the reference date by a day, so the whole Live Analysis
+  // tab can be browsed day-by-day without reaching for the date field's own
+  // prev/next buttons. Disabled while focus sits in an editable control (most
+  // importantly the reference date's own <input type="date">, whose native
+  // arrow-key segment navigation must keep working) and while a modifier key
+  // is held, so browser/OS shortcuts (e.g. Alt+Left to go back a page) pass
+  // through untouched.
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+
+      e.preventDefault();
+      if (e.key === 'ArrowLeft') {
+        handlePrevDate();
+      } else {
+        handleNextDate();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, analysisDate]);
+
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     performAnalysis(startDate, endDate);
@@ -776,7 +806,12 @@ export function App() {
 
                   {/* Reference Date */}
                   <div className="md:col-span-3 relative group">
-                    <span className="absolute left-3 top-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wider z-10">Analysis Ref Date</span>
+                    <span className="absolute left-3 top-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wider z-10">
+                      Analysis Ref Date
+                      <span className="hidden sm:inline normal-case font-normal text-slate-600 ml-1.5" title="Use the Left/Right arrow keys anywhere on this tab to browse days">
+                        (← → to browse)
+                      </span>
+                    </span>
                     <div className="flex items-center bg-slate-900/50 border border-slate-700 rounded-xl transition-all focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500 overflow-hidden">
                       <button
                         type="button"
@@ -787,6 +822,7 @@ export function App() {
                       </button>
                       <input
                         type="date"
+                        aria-label="Analysis Ref Date"
                         ref={analysisDateInputRef}
                         value={analysisDate}
                         onChange={(e) => setAnalysisDate(e.target.value)}

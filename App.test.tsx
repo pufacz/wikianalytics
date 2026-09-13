@@ -149,3 +149,57 @@ describe('App: every chart carries a description tooltip', () => {
         expect(screen.getByText(new RegExp(`Edits on each day of ${month},`))).toBeInTheDocument();
     });
 });
+
+describe('App: browsing the reference date with arrow keys', () => {
+    const renderApp = async () => {
+        render(<App />);
+        await act(async () => { await Promise.resolve(); });
+    };
+
+    const refDateInput = () => screen.getByLabelText('Analysis Ref Date') as HTMLInputElement;
+
+    it('steps the reference date back and forward on the dashboard tab', async () => {
+        await renderApp();
+        const before = refDateInput().value;
+
+        fireEvent.keyDown(window, { key: 'ArrowLeft' });
+        await waitFor(() => {
+            const d = new Date(before);
+            d.setDate(d.getDate() - 1);
+            expect(refDateInput().value).toBe(d.toISOString().split('T')[0]);
+        });
+
+        fireEvent.keyDown(window, { key: 'ArrowRight' });
+        await waitFor(() => expect(refDateInput().value).toBe(before));
+    });
+
+    it('does not steal arrow keys while typing in another field', async () => {
+        await renderApp();
+        const before = refDateInput().value;
+        const usernameInput = screen.getByPlaceholderText('Enter Username...');
+
+        usernameInput.focus();
+        fireEvent.keyDown(usernameInput, { key: 'ArrowLeft' });
+
+        expect(refDateInput().value).toBe(before);
+    });
+
+    it('ignores the shortcut while an Alt/Ctrl/Meta modifier is held', async () => {
+        await renderApp();
+        const before = refDateInput().value;
+
+        fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true });
+        expect(refDateInput().value).toBe(before);
+    });
+
+    it('is inert once the comparison tab is active', async () => {
+        await renderApp();
+        fireEvent.click(screen.getByText('Compare Reports'));
+
+        // The dashboard's reference date field is unmounted on this tab, so
+        // there is nothing to assert other than the handler not throwing
+        // once its own inputs are gone.
+        expect(() => fireEvent.keyDown(window, { key: 'ArrowLeft' })).not.toThrow();
+        expect(screen.queryByLabelText('Analysis Ref Date')).toBeNull();
+    });
+});
