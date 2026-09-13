@@ -32,7 +32,7 @@ The Vite development server uses port `3000`. The test environment is `jsdom` an
 
 ## Environment and safety
 
-- Local Gemini configuration uses `GEMINI_API_KEY` in `.env.local`; do not commit `.env*` files or print key values.
+- Local Gemini configuration uses `GEMINI_API_KEY` and the optional `GEMINI_MODEL` in `.env.local`; do not commit `.env*` files or print key values.
 - Vite currently exposes that key to the browser as `process.env.API_KEY`. Treat it as public client configuration; do not describe it as a server-side secret or expand its exposure without an explicit architecture change.
 - Wikipedia calls are browser-side and use public API CORS. Avoid adding credentials to Wikipedia requests.
 - Before finishing a change, run `npm test -- --run` and `npm run build` when the environment permits. For UI changes, also exercise the affected flow through `npm run dev`.

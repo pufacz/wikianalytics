@@ -60,7 +60,12 @@ Create `.env.local` in the root directory:
 
 ```
 GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-2.5-flash   # optional; this is the default
 ```
+
+Both are substituted at build time, so restart the dev server after changing
+them. `GEMINI_MODEL` falls back to `DEFAULT_GEMINI_MODEL` in
+[services/geminiService.ts](services/geminiService.ts) when unset or blank.
 
 The Gemini API key is exposed to the browser via Vite's `define` configuration ([vite.config.ts:14](vite.config.ts#L14)). This is client-side configuration, not a server secret.
 

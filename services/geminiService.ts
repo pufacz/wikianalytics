@@ -1,6 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 import { UserStatistics, Namespace } from "../types";
 
+// Overridable with GEMINI_MODEL in .env.local. Like the API key, this is
+// substituted at build time, so changing it means restarting the dev server.
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+
+// An unset variable arrives as undefined, but a blank or whitespace-only entry
+// in .env.local arrives as a string — which would otherwise be sent to the API
+// as a model name and fail there rather than here.
+export const resolveModel = (configured?: string): string =>
+  configured?.trim() || DEFAULT_GEMINI_MODEL;
+
 const initGemini = () => {
   // Assuming process.env.API_KEY is available in the environment
   const apiKey = process.env.API_KEY || '';
@@ -69,7 +79,7 @@ export const generateUserAnalysis = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: resolveModel(process.env.GEMINI_MODEL),
       contents: prompt,
     });
     

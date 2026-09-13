@@ -44,6 +44,7 @@
     Create a `.env.local` file in the root directory and add your Gemini API key :
     ```env
     GEMINI_API_KEY=your_actual_api_key_here
+    GEMINI_MODEL=gemini-2.5-flash   # optional; omit to use the default
     ```
 
 4.  **Run the application**

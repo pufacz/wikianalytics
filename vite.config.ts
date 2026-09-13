@@ -12,7 +12,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      // Left undefined when unset; geminiService falls back to its default.
+      'process.env.GEMINI_MODEL': JSON.stringify(env.GEMINI_MODEL)
     },
     resolve: {
       alias: {
