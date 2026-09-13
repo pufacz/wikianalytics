@@ -338,6 +338,35 @@ export const WeekdayHourlyActivityChart: React.FC<{ stats: UserStatistics, refer
   );
 };
 
+// How much weight an hour's average actually carries, as a colour. Below
+// MIN_HOUR_SAMPLES the average is suppressed to zero, so these dots sit on the
+// baseline and the colour says how far short the hour fell; green means the
+// figure above it is a real average.
+export const sampleColor = (samples: number): string => {
+  if (samples >= MIN_HOUR_SAMPLES) return '#10b981'; // emerald — reported
+  if (samples <= 0) return '#ef4444';                // red — nothing to average
+  if (samples === 1) return '#f97316';               // orange — a single day
+  return '#eab308';                                  // yellow — still short
+};
+
+// `radius` rather than `r`: recharts clones this element with its own props,
+// and an `r` of ours would be overwritten on the active dot.
+const SampleDot = (props: any) => {
+  const { cx, cy, payload, radius } = props;
+  if (typeof cx !== 'number' || typeof cy !== 'number') return <g />;
+
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={radius ?? 3.5}
+      fill={sampleColor(payload?.samples ?? 0)}
+      stroke="var(--chart-tooltip-bg)"
+      strokeWidth={1.5}
+    />
+  );
+};
+
 export const HourlyPaceChart: React.FC<{
   data: HourComparisonStat[],
   sampleSize: number,
@@ -379,15 +408,19 @@ export const HourlyPaceChart: React.FC<{
                   {hasBaseline && rated && (
                     <>
                       <div style={{ color: 'var(--text-secondary)' }}>Average: {row.average.toFixed(1)}</div>
-                      <div style={{ color: 'var(--text-secondary)' }}>from {row.samples} days worked at this hour</div>
+                      <div className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                        <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: sampleColor(row.samples) }} />
+                        from {row.samples} days worked at this hour
+                      </div>
                       <div className={`mt-1 font-medium ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {diff >= 0 ? '+' : ''}{diff.toFixed(1)} vs average
                       </div>
                     </>
                   )}
                   {hasBaseline && !rated && (
-                    <div style={{ color: 'var(--text-secondary)' }}>
-                      Only {row.samples} day{row.samples === 1 ? '' : 's'} worked at this hour — too few to average
+                    <div className="flex items-start gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="w-2 h-2 rounded-full inline-block shrink-0 mt-1" style={{ backgroundColor: sampleColor(row.samples) }} />
+                      <span>Only {row.samples} day{row.samples === 1 ? '' : 's'} worked at this hour — too few to average</span>
                     </div>
                   )}
                   {label === currentLocalHour && (
@@ -409,11 +442,11 @@ export const HourlyPaceChart: React.FC<{
             <Line
               type="monotone"
               dataKey="average"
-              stroke="#f59e0b"
+              stroke="#94a3b8"
               strokeWidth={2}
               strokeDasharray="4 3"
-              dot={false}
-              activeDot={false}
+              dot={<SampleDot />}
+              activeDot={<SampleDot radius={5.5} />}
             />
           )}
         </ComposedChart>
