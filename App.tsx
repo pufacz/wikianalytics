@@ -89,6 +89,7 @@ export function App() {
   const [analysisDate, setAnalysisDate] = useState(query.get('ref') || new Date().toISOString().split('T')[0]);
 
   const [loading, setLoading] = useState(false);
+  const [checkingUser, setCheckingUser] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,40 +104,35 @@ export function App() {
   // Storage State
   const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
+  const loadedUserKeyRef = useRef<string | null>(null);
 
-  // Which user@lang already had its "From" date filled in from the first edit.
-  // Seeded from the URL so an explicit ?start= is never overwritten.
-  const autoStartDateKeyRef = useRef<string | null>(
-    query.get('start') ? `${query.get('user') || ''}@${query.get('lang') || 'pl'}` : null
-  );
   const [detectingFirstEdit, setDetectingFirstEdit] = useState(false);
 
   useEffect(() => {
     loadSavedProfiles();
   }, []);
 
-  // On editor change, look up their oldest edit and use it as the "From" date.
-  // The ref marks a key whose date is already settled — auto-filled before,
-  // restored from a saved profile, or typed by hand — and is re-checked at every
-  // step, since the user can take over while the lookup is still pending.
+  // Every editor or wiki change gets a fresh oldest-edit lookup. The result
+  // deliberately replaces any previous From value, including a manually entered
+  // one; after the lookup settles, the user can still adjust the field again.
   useEffect(() => {
     const name = username.trim();
-    const key = `${name}@${lang}`;
-    if (!name || autoStartDateKeyRef.current === key) return;
+    if (!name) {
+      setDetectingFirstEdit(false);
+      return;
+    }
 
+    setDetectingFirstEdit(true);
     let cancelled = false;
     const timer = setTimeout(async () => {
-      if (autoStartDateKeyRef.current === key) return;
-      setDetectingFirstEdit(true);
       try {
         const firstEdit = await fetchFirstEditDate(name, lang);
-        if (cancelled || autoStartDateKeyRef.current === key) return;
-        autoStartDateKeyRef.current = key;
+        if (cancelled) return;
         if (firstEdit) setStartDate(firstEdit);
       } catch {
         // Best effort only — the field stays editable by hand.
       } finally {
-        setDetectingFirstEdit(false);
+        if (!cancelled) setDetectingFirstEdit(false);
       }
     }, 600);
 
@@ -184,8 +180,8 @@ export function App() {
       refDateObj = new Date(y, m - 1, d, 23, 59, 59);
     }
 
-    return processStatistics(user, filteredContribs, refDateObj);
-  }, [user, filteredContribs, analysisDate]);
+    return processStatistics(user, filteredContribs, refDateObj, { startDate, endDate });
+  }, [user, filteredContribs, analysisDate, startDate, endDate]);
 
   // The reference date spelled out for the header bar. Parsed field by field
   // rather than through Date(string): a bare "YYYY-MM-DD" parses as UTC, which
@@ -203,13 +199,19 @@ export function App() {
   }, [analysisDate]);
 
   // Initial Analysis
-  const performAnalysis = async (targetStartDate: string, targetEndDate: string) => {
-    if (!username.trim()) return;
+  const performAnalysis = async (
+    targetStartDate: string,
+    targetEndDate: string,
+    fetchedUser: WikiUser,
+    targetUsername: string,
+    targetLang: string
+  ) => {
+    if (!targetUsername) return;
 
     // Sync URL
     const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('user', username);
-    urlParams.set('lang', lang);
+    urlParams.set('user', targetUsername);
+    urlParams.set('lang', targetLang);
     urlParams.set('start', targetStartDate);
     urlParams.set('end', targetEndDate);
     urlParams.set('ref', analysisDate);
@@ -224,15 +226,10 @@ export function App() {
     setActiveTab('dashboard'); // Switch to dashboard on new search
 
     try {
-      // 1. Fetch User Info
-      const fetchedUser = await fetchWikiUser(username, lang);
-      if (!fetchedUser) {
-        throw new Error(`User "${username}" not found on ${lang}.wikipedia.org`);
-      }
       setUser(fetchedUser);
 
-      // 2. Fetch Contributions with Date Range
-      const contribs = await fetchUserContributions(username, lang, targetStartDate, targetEndDate, (count) => {
+      // Fetch contributions only after the user summary has been approved.
+      const contribs = await fetchUserContributions(targetUsername, targetLang, targetStartDate, targetEndDate, (count) => {
         setProgress(count);
       });
 
@@ -240,9 +237,10 @@ export function App() {
         throw new Error("User found, but has no contributions in the selected range.");
       }
 
-      // 3. Set Raw Data (Stats are computed automatically via useMemo)
+      // Set Raw Data (Stats are computed automatically via useMemo)
       setRawContribs(contribs);
       setTopPagesLimit(10);
+      loadedUserKeyRef.current = `${targetUsername.toLowerCase()}@${targetLang}`;
 
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -274,18 +272,22 @@ export function App() {
     setAnalysisDate(d.toISOString().split('T')[0]);
   };
 
-  // Left/Right steps the reference date by a day, so the whole Live Analysis
-  // tab can be browsed day-by-day without reaching for the date field's own
-  // prev/next buttons. Disabled while focus sits in an editable control (most
+  const handleToday = () => {
+    const today = new Date();
+    setAnalysisDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
+  };
+
+  // Left/Right steps the reference date by a day and Home returns to the local
+  // current date. Disabled while focus sits in an editable control (most
   // importantly the reference date's own <input type="date">, whose native
-  // arrow-key segment navigation must keep working) and while a modifier key
+  // keyboard navigation must keep working) and while a modifier key
   // is held, so browser/OS shortcuts (e.g. Alt+Left to go back a page) pass
   // through untouched.
   useEffect(() => {
     if (activeTab !== 'dashboard') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home') return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
 
       const target = e.target as HTMLElement | null;
@@ -293,7 +295,9 @@ export function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
 
       e.preventDefault();
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'Home') {
+        handleToday();
+      } else if (e.key === 'ArrowLeft') {
         handlePrevDate();
       } else {
         handleNextDate();
@@ -304,19 +308,42 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab, analysisDate]);
 
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
-    performAnalysis(startDate, endDate);
+  const confirmAndPerformAnalysis = async (targetStartDate: string, targetEndDate: string) => {
+    const targetUsername = username.trim();
+    const targetLang = lang;
+    if (!targetUsername || checkingUser) return;
+
+    setCheckingUser(true);
+    setError(null);
+    try {
+      const fetchedUser = await fetchWikiUser(targetUsername, targetLang);
+      if (!fetchedUser) {
+        setError(`User "${targetUsername}" not found on ${targetLang}.wikipedia.org`);
+        return;
+      }
+
+      const approved = window.confirm(
+        `User "${fetchedUser.name}" has ${fetchedUser.editcount.toLocaleString()} lifetime edits on ${targetLang}.wikipedia.org.\n\nLoad this user's contributions?`
+      );
+      if (!approved) return;
+
+      await performAnalysis(targetStartDate, targetEndDate, fetchedUser, targetUsername, targetLang);
+    } catch (err: any) {
+      setError(err.message || "Failed to check the Wikipedia user.");
+    } finally {
+      setCheckingUser(false);
+    }
   };
 
   const handleSmartAnalyze = async (e: FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) return;
+    const targetUserKey = `${username.trim().toLowerCase()}@${lang}`;
+    if (!username.trim() || checkingUser || detectingFirstEdit) return;
 
     // Check if we are updating the CURRENTLY loaded profile
     // Logic: Same User, Same Lang
     // AND: We have data already
-    if (user && user.name === username && rawContribs.length > 0) {
+    if (loadedUserKeyRef.current === targetUserKey && user && rawContribs.length > 0) {
       // Incremental Update Mode
       const currentMaxTimestamp = rawContribs[0].timestamp; // Assumes desc sort
 
@@ -385,7 +412,7 @@ export function App() {
 
     } else {
       // Full Analysis (New User or Complete Replace)
-      await performAnalysis(startDate, endDate);
+      await confirmAndPerformAnalysis(startDate, endDate);
 
       // After full analysis, save if successful
       // We need to access the state... but state updates are async.
@@ -416,7 +443,6 @@ export function App() {
     if (data) {
       setLoading(true);
       try {
-        autoStartDateKeyRef.current = `${data.username}@${data.lang}`;
         setUsername(data.username);
         setLang(data.lang);
         setStartDate(data.rangeStart);
@@ -424,6 +450,7 @@ export function App() {
         setUser(data.user);
         setRawContribs(data.contributions);
         setCurrentProfileId(data.id);
+        loadedUserKeyRef.current = `${data.username.trim().toLowerCase()}@${data.lang}`;
         setGlobalNamespaceFilter('all');
         setActiveTab('dashboard');
       } finally {
@@ -480,6 +507,23 @@ export function App() {
       setLoading(false);
     }
   };
+
+  // Refresh the loaded Wikipedia data without reloading the application. Keep
+  // the browser's native Ctrl+R behavior when there is no dashboard dataset to
+  // update, or while another refresh is already running.
+  useEffect(() => {
+    const handleRefreshShortcut = (e: KeyboardEvent) => {
+      const isCtrlRefresh = e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'r';
+      if (!isCtrlRefresh) return;
+      if (activeTab !== 'dashboard' || !user || !username || rawContribs.length === 0 || loading) return;
+
+      e.preventDefault();
+      void handleRefresh();
+    };
+
+    window.addEventListener('keydown', handleRefreshShortcut);
+    return () => window.removeEventListener('keydown', handleRefreshShortcut);
+  }, [activeTab, user, username, rawContribs, loading, endDate, lang]);
 
   const handleDownloadReport = () => {
     if (!stats || !performanceMetrics) return;
@@ -880,10 +924,7 @@ export function App() {
                         type="date"
                         aria-label="From"
                         value={startDate}
-                        onChange={(e) => {
-                          autoStartDateKeyRef.current = `${username.trim()}@${lang}`;
-                          setStartDate(e.target.value);
-                        }}
+                        onChange={(e) => setStartDate(e.target.value)}
                         className="w-full pl-3 pt-5 pb-1 pr-2 bg-transparent border-none rounded-lg focus:ring-0 text-sm text-slate-200"
                       />
                     </div>
@@ -904,8 +945,8 @@ export function App() {
                   <div className="md:col-span-3 relative group">
                     <span className="absolute left-3 top-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wider z-10">
                       Analysis Ref Date
-                      <span className="hidden sm:inline normal-case font-normal text-slate-600 ml-1.5" title="Use the Left/Right arrow keys anywhere on this tab to browse days">
-                        (← → to browse)
+                      <span className="hidden sm:inline normal-case font-normal text-slate-600 ml-1.5" title="Use Left/Right to browse days and Home to return to today">
+                        (← → browse · Home today)
                       </span>
                     </span>
                     <div className="flex items-center bg-slate-900/50 border border-slate-700 rounded-xl transition-all focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500 overflow-hidden">
@@ -947,17 +988,17 @@ export function App() {
                   <div className="md:col-span-3 flex gap-2">
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || checkingUser || detectingFirstEdit}
                       className="flex-grow bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium px-4 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? <span className="animate-spin">⌛</span> : <Search className="w-4 h-4" />}
-                      Analyze
+                      {loading || checkingUser ? <span className="animate-spin">⌛</span> : <Search className="w-4 h-4" />}
+                      {checkingUser ? 'Checking...' : 'Analyze'}
                     </button>
                     <button
                       type="button"
                       onClick={handleRefresh}
                       disabled={loading || !user}
-                      title="Fetch new edits"
+                      title="Fetch new edits (Ctrl+R)"
                       className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3 py-2.5 rounded-xl transition-all flex items-center justify-center disabled:opacity-50"
                     >
                       <RefreshCw className={`w-4 h-4 ${loading && user ? 'animate-spin' : ''}`} />
@@ -1080,7 +1121,129 @@ export function App() {
                     </div>
                   </div >
 
-                  {/* ROW 2: Performance Comparisons */}
+                  {/* All edits in recurring periods selected by the Reference Date */}
+                  <div className="space-y-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">All Edits by Reference Period</h2>
+                      <p className="text-xs text-slate-500">Totals across all years in the selected range, including page creations</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-sky-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-sky-500/10 transition-all duration-500"></div>
+                        <div className="flex items-center justify-between gap-3 mb-3 text-slate-400 text-sm font-medium relative z-10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="p-1.5 bg-sky-500/10 rounded-lg"><CalendarDays className="w-4 h-4 text-sky-400" /></div>
+                            <span className="truncate">Edits on {performanceMetrics.currentDateName}</span>
+                          </div>
+                          <InfoTooltip text={`All edits made on ${performanceMetrics.currentDateName} in every year covered by the selected range, including edits that created new pages. Timestamps use your browser's local time.`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white tracking-tight relative z-10">
+                          {stats.editsOnReferenceDate.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 relative z-10">
+                          {globalNamespaceFilter === 'all' ? 'All namespaces' : getNamespaceLabel(parseInt(globalNamespaceFilter))}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-indigo-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-indigo-500/10 transition-all duration-500"></div>
+                        <div className="flex items-center justify-between gap-3 mb-3 text-slate-400 text-sm font-medium relative z-10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="p-1.5 bg-indigo-500/10 rounded-lg"><Clock className="w-4 h-4 text-indigo-400" /></div>
+                            <span className="truncate">Edits in ISO week {stats.referenceIsoWeek}</span>
+                          </div>
+                          <InfoTooltip text={`All edits made in ISO week ${stats.referenceIsoWeek} in every year covered by the selected range, including edits that created new pages. ISO weeks run Monday through Sunday and may cross calendar-year boundaries.`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white tracking-tight relative z-10">
+                          {stats.editsInReferenceWeek.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 relative z-10">
+                          {globalNamespaceFilter === 'all' ? 'All namespaces' : getNamespaceLabel(parseInt(globalNamespaceFilter))}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-amber-500/10 transition-all duration-500"></div>
+                        <div className="flex items-center justify-between gap-3 mb-3 text-slate-400 text-sm font-medium relative z-10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="p-1.5 bg-amber-500/10 rounded-lg"><BarChart2 className="w-4 h-4 text-amber-400" /></div>
+                            <span className="truncate">Edits in {stats.currentMonthName}</span>
+                          </div>
+                          <InfoTooltip text={`All edits made in ${stats.currentMonthName} in every year covered by the selected range, including edits that created new pages. Timestamps use your browser's local time.`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white tracking-tight relative z-10">
+                          {stats.editsInReferenceMonth.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 relative z-10">
+                          {globalNamespaceFilter === 'all' ? 'All namespaces' : getNamespaceLabel(parseInt(globalNamespaceFilter))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pages created in recurring periods selected by the Reference Date */}
+                  <div className="space-y-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">Pages Created by Reference Period</h2>
+                      <p className="text-xs text-slate-500">Totals across all years in the selected range</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-cyan-500/10 transition-all duration-500"></div>
+                        <div className="flex items-center justify-between gap-3 mb-3 text-slate-400 text-sm font-medium relative z-10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="p-1.5 bg-cyan-500/10 rounded-lg"><CalendarDays className="w-4 h-4 text-cyan-400" /></div>
+                            <span className="truncate">Created on {performanceMetrics.currentDateName}</span>
+                          </div>
+                          <InfoTooltip text={`Pages created on ${performanceMetrics.currentDateName} in every year covered by the selected range. Creation timestamps use your browser's local time.`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white tracking-tight relative z-10">
+                          {stats.createdOnReferenceDate.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 relative z-10">
+                          {globalNamespaceFilter === 'all' ? 'All namespaces' : getNamespaceLabel(parseInt(globalNamespaceFilter))}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-violet-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-violet-500/10 transition-all duration-500"></div>
+                        <div className="flex items-center justify-between gap-3 mb-3 text-slate-400 text-sm font-medium relative z-10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="p-1.5 bg-violet-500/10 rounded-lg"><Clock className="w-4 h-4 text-violet-400" /></div>
+                            <span className="truncate">Created in ISO week {stats.referenceIsoWeek}</span>
+                          </div>
+                          <InfoTooltip text={`Pages created in ISO week ${stats.referenceIsoWeek} in every year covered by the selected range. ISO weeks run Monday through Sunday and may cross calendar-year boundaries.`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white tracking-tight relative z-10">
+                          {stats.createdInReferenceWeek.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 relative z-10">
+                          {globalNamespaceFilter === 'all' ? 'All namespaces' : getNamespaceLabel(parseInt(globalNamespaceFilter))}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-emerald-500/10 transition-all duration-500"></div>
+                        <div className="flex items-center justify-between gap-3 mb-3 text-slate-400 text-sm font-medium relative z-10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="p-1.5 bg-emerald-500/10 rounded-lg"><BarChart2 className="w-4 h-4 text-emerald-400" /></div>
+                            <span className="truncate">Created in {stats.currentMonthName}</span>
+                          </div>
+                          <InfoTooltip text={`Pages created in ${stats.currentMonthName} in every year covered by the selected range. Creation timestamps use your browser's local time.`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white tracking-tight relative z-10">
+                          {stats.createdInReferenceMonth.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 relative z-10">
+                          {globalNamespaceFilter === 'all' ? 'All namespaces' : getNamespaceLabel(parseInt(globalNamespaceFilter))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Performance Comparisons */}
                   < div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" >
 
                     {/* 1. Yearly Performance */}

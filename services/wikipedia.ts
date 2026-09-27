@@ -153,7 +153,32 @@ export const fetchUserContributions = async (
   }
 };
 
-export const processStatistics = (user: WikiUser, contribs: WikiContrib[], referenceDate: Date = new Date()): UserStatistics => {
+interface StatisticsDateRange {
+  startDate: string;
+  endDate: string;
+}
+
+const getISOWeekParts = (date: Date) => {
+  const normalized = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = normalized.getUTCDay() || 7;
+  normalized.setUTCDate(normalized.getUTCDate() + 4 - dayNumber);
+  const weekYear = normalized.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const week = Math.ceil((((normalized.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { weekYear, week };
+};
+
+const getISOWeekKey = (date: Date) => {
+  const { weekYear, week } = getISOWeekParts(date);
+  return `${weekYear}-W${String(week).padStart(2, '0')}`;
+};
+
+export const processStatistics = (
+  user: WikiUser,
+  contribs: WikiContrib[],
+  referenceDate: Date = new Date(),
+  selectedRange?: StatisticsDateRange
+): UserStatistics => {
   const nsCounts: Record<number, number> = {};
   const hourCounts: Record<number, number> = {};
   const dayOfWeekCounts: Record<number, number> = {}; // 0=Sunday
@@ -219,6 +244,14 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
   const currentDayOfWeek = now.getDay();
   const currentMMDD = `${String(currentMonthIndex + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
   const currentDayKey = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}-${String(currentDayOfMonth).padStart(2, '0')}`;
+  const referenceIsoWeek = getISOWeekParts(now).week;
+
+  let editsOnReferenceDate = 0;
+  let editsInReferenceWeek = 0;
+  let editsInReferenceMonth = 0;
+  let createdOnReferenceDate = 0;
+  let createdInReferenceWeek = 0;
+  let createdInReferenceMonth = 0;
 
   contribs.forEach((c) => {
     // Namespace Stats
@@ -231,6 +264,7 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     const dayOfMonth = date.getDate();
     const month = date.getMonth(); // 0-11
     const year = date.getFullYear();
+    const isoWeek = getISOWeekParts(date).week;
 
     hourCounts[hour]++;
     dayOfWeekCounts[day]++;
@@ -242,6 +276,10 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
     const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
     const mmddKey = `${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
+
+    if (mmddKey === currentMMDD) editsOnReferenceDate++;
+    if (isoWeek === referenceIsoWeek) editsInReferenceWeek++;
+    if (month === currentMonthIndex) editsInReferenceMonth++;
 
     // General Maps
     monthlyEditsMap[monthKey] = (monthlyEditsMap[monthKey] || 0) + 1;
@@ -294,6 +332,9 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     // Creation Stats - track by namespace
     if (c.new !== undefined) {
       createdArticlesByNs[c.ns] = (createdArticlesByNs[c.ns] || 0) + 1;
+      if (mmddKey === currentMMDD) createdOnReferenceDate++;
+      if (isoWeek === referenceIsoWeek) createdInReferenceWeek++;
+      if (month === currentMonthIndex) createdInReferenceMonth++;
     }
 
     // Page Counts
@@ -446,22 +487,12 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     .map(([title, data]) => ({ title, count: data.count, ns: data.ns }))
     .sort((a, b) => b.count - a.count);
 
-  // Helper for ISO Week (simplified)
-  const getISOWeek = (date: Date) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
-  };
-
   // Group by week
   const weekCounts: Record<string, number> = {};
   const weekStartMap: Record<string, string> = {};
   contribs.forEach(c => {
     const date = new Date(c.timestamp);
-    const weekKey = getISOWeek(date);
+    const weekKey = getISOWeekKey(date);
     weekCounts[weekKey] = (weekCounts[weekKey] || 0) + 1;
 
     if (!weekStartMap[weekKey]) {
@@ -474,67 +505,155 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     }
   });
 
-  const getTopN = (counts: Record<string, number>, limit: number = 50): { label: string; count: number; date?: string }[] => {
-    return Object.entries(counts)
-      .map(([label, count]) => ({ label, count, date: label }))
-      .sort((a, b) => b.count - a.count)
+  type RankedPeriod = { label: string; count: number; date?: string };
+  type RankingDirection = 'most' | 'least';
+
+  const rankPeriods = (periods: RankedPeriod[], direction: RankingDirection, limit: number = 500) => {
+    return periods
+      .sort((a, b) => {
+        const countDifference = direction === 'most' ? b.count - a.count : a.count - b.count;
+        return countDifference || (a.date || a.label).localeCompare(b.date || b.label);
+      })
       .slice(0, limit);
   };
 
-  const getTopWeeks = (limit: number = 50) => {
-    return Object.entries(weekCounts)
+  const getWeeks = (counts: Record<string, number>, direction: RankingDirection, limit: number = 500) => {
+    const periods = Object.entries(counts)
       .map(([label, count]) => ({
         label,
         count,
         date: weekStartMap[label]
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, limit);
+      }));
+    return rankPeriods(periods, direction, limit);
   };
 
-  // Improved Month Labels for Top Months
-  const getTopMonths = (limit: number = 50) => {
-    return Object.entries(monthlyEditsMap)
+  const getMonths = (counts: Record<string, number>, direction: RankingDirection, limit: number = 500) => {
+    const periods = Object.entries(counts)
       .map(([key, count]) => {
         const [y, m] = key.split('-');
         const date = new Date(parseInt(y), parseInt(m) - 1, 1);
         const label = date.toLocaleString('default', { month: 'long', year: 'numeric' });
         return { label, count, date: `${y}-${m}-01` };
-      })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, limit);
+      });
+    return rankPeriods(periods, direction, limit);
   };
 
-  // Improved Year Labels
-  const getTopYears = (limit: number = 50) => {
-    return Object.entries(yearCounts)
-      .map(([key, count]) => ({ label: key, count, date: `${key}-01-01` }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, limit);
+  const getYears = (counts: Record<string, number>, direction: RankingDirection, limit: number = 500) => {
+    const periods = Object.entries(counts)
+      .map(([key, count]) => ({ label: key, count, date: `${key}-01-01` }));
+    return rankPeriods(periods, direction, limit);
   };
 
   const polishDays = ['nd', 'pn', 'wt', 'sr', 'cz', 'pt', 'sb'];
-  const topDays = Object.entries(dailyEditsMap)
+  const getDayPeriods = (counts: Record<string, number>) => Object.entries(counts)
     .map(([dateKey, count]) => {
-      const date = new Date(dateKey);
+      const [year, month, day] = dateKey.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
       const dayName = polishDays[date.getDay()];
       return {
         label: `${dateKey} (${dayName})`,
         count,
         date: dateKey
       };
-    })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 50);
+    });
 
-  const topWeeks = getTopWeeks();
-  const topMonths = getTopMonths();
-  const topYears = getTopYears();
+  const monthAbbreviations = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const getDayOfYearPeriods = (counts: Record<string, number>) => Object.entries(counts)
+    .map(([dateKey, count]) => {
+      const [month, day] = dateKey.split('-').map(Number);
+      return {
+        label: `${monthAbbreviations[month - 1]} ${String(day).padStart(2, '0')}`,
+        count,
+        date: dateKey
+      };
+    });
+
+  // Build complete calendars only for the optional zero-inclusive ranking. The
+  // existing maps intentionally remain active-only so averages and top lists do
+  // not change meaning.
+  const dailyEditsIncludingZero = { ...dailyEditsMap };
+  const weekCountsIncludingZero = { ...weekCounts };
+  const monthlyEditsIncludingZero = { ...monthlyEditsMap };
+  const yearCountsIncludingZero: Record<string, number> = { ...yearCounts };
+  const calendarDateEditsIncludingZero = { ...calendarDateEditsMap };
+
+  const parseLocalDate = (value: string | undefined) => {
+    const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const [, yearText, monthText, dayText] = match;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const date = new Date(year, month - 1, day, 12, 0, 0);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
+  };
+
+  const activeDateKeys = Object.keys(dailyEditsMap).sort();
+  const rangeStart = parseLocalDate(selectedRange?.startDate || activeDateKeys[0]);
+  const rangeEnd = parseLocalDate(selectedRange?.endDate || activeDateKeys[activeDateKeys.length - 1]);
+
+  if (rangeStart && rangeEnd && rangeStart <= rangeEnd) {
+    const cursor = new Date(rangeStart);
+    while (cursor <= rangeEnd) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth() + 1;
+      const day = cursor.getDate();
+      const monthText = String(month).padStart(2, '0');
+      const dayText = String(day).padStart(2, '0');
+      const dayKey = `${year}-${monthText}-${dayText}`;
+      const monthKey = `${year}-${monthText}`;
+      const yearKey = String(year);
+      const calendarDateKey = `${monthText}-${dayText}`;
+      const weekKey = getISOWeekKey(cursor);
+
+      dailyEditsIncludingZero[dayKey] ??= 0;
+      weekCountsIncludingZero[weekKey] ??= 0;
+      monthlyEditsIncludingZero[monthKey] ??= 0;
+      yearCountsIncludingZero[yearKey] ??= 0;
+      calendarDateEditsIncludingZero[calendarDateKey] ??= 0;
+
+      if (!weekStartMap[weekKey]) {
+        const monday = new Date(cursor);
+        const weekday = monday.getDay();
+        monday.setDate(monday.getDate() - weekday + (weekday === 0 ? -6 : 1));
+        weekStartMap[weekKey] = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+      }
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  const dayPeriods = getDayPeriods(dailyEditsMap);
+  const dayOfYearPeriods = getDayOfYearPeriods(calendarDateEditsMap);
+
+  const topDays = rankPeriods([...dayPeriods], 'most');
+  const topWeeks = getWeeks(weekCounts, 'most');
+  const topMonths = getMonths(monthlyEditsMap, 'most');
+  const topYears = getYears(yearCounts, 'most');
+  const topDaysOfYear = rankPeriods([...dayOfYearPeriods], 'most');
+  const leastDays = rankPeriods([...dayPeriods], 'least');
+  const leastWeeks = getWeeks(weekCounts, 'least');
+  const leastMonths = getMonths(monthlyEditsMap, 'least');
+  const leastYears = getYears(yearCounts, 'least');
+  const leastDaysOfYear = rankPeriods([...dayOfYearPeriods], 'least');
+  const leastDaysIncludingZero = rankPeriods(getDayPeriods(dailyEditsIncludingZero), 'least');
+  const leastWeeksIncludingZero = getWeeks(weekCountsIncludingZero, 'least');
+  const leastMonthsIncludingZero = getMonths(monthlyEditsIncludingZero, 'least');
+  const leastYearsIncludingZero = getYears(yearCountsIncludingZero, 'least');
+  const leastDaysOfYearIncludingZero = rankPeriods(getDayOfYearPeriods(calendarDateEditsIncludingZero), 'least');
 
   return {
     user,
     totalFetched: contribs.length,
     createdArticlesByNs,
+    editsOnReferenceDate,
+    editsInReferenceWeek,
+    editsInReferenceMonth,
+    createdOnReferenceDate,
+    createdInReferenceWeek,
+    createdInReferenceMonth,
+    referenceIsoWeek,
     thisDayEdits,
     thisMonthEdits,
     thisYearEdits,
@@ -562,6 +681,17 @@ export const processStatistics = (user: WikiUser, contribs: WikiContrib[], refer
     topDays,
     topWeeks,
     topMonths,
-    topYears
+    topYears,
+    topDaysOfYear,
+    leastDays,
+    leastWeeks,
+    leastMonths,
+    leastYears,
+    leastDaysOfYear,
+    leastDaysIncludingZero,
+    leastWeeksIncludingZero,
+    leastMonthsIncludingZero,
+    leastYearsIncludingZero,
+    leastDaysOfYearIncludingZero
   };
 };

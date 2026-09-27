@@ -70,6 +70,13 @@ export interface UserStatistics {
   user: WikiUser;
   totalFetched: number;
   createdArticlesByNs: Record<number, number>; // Breakdown of creations
+  editsOnReferenceDate: number;   // Same calendar date across all selected years
+  editsInReferenceWeek: number;   // Same ISO week number across all selected years
+  editsInReferenceMonth: number;  // Same month across all selected years
+  createdOnReferenceDate: number;  // Same calendar date across all selected years
+  createdInReferenceWeek: number;  // Same ISO week number across all selected years
+  createdInReferenceMonth: number; // Same month across all selected years
+  referenceIsoWeek: number;
   thisDayEdits: number;      // Edits today
   thisMonthEdits: number;
   thisYearEdits: number;
@@ -103,11 +110,22 @@ export interface UserStatistics {
   lastEditInSample: string;
   editedPages: EditedPage[];
 
-  // Top Periods
+  // Productive periods. Least-period lists contain only periods with edits.
   topDays: TopPeriod[];
   topWeeks: TopPeriod[];
   topMonths: TopPeriod[];
   topYears: TopPeriod[];
+  topDaysOfYear: TopPeriod[];
+  leastDays: TopPeriod[];
+  leastWeeks: TopPeriod[];
+  leastMonths: TopPeriod[];
+  leastYears: TopPeriod[];
+  leastDaysOfYear: TopPeriod[];
+  leastDaysIncludingZero: TopPeriod[];
+  leastWeeksIncludingZero: TopPeriod[];
+  leastMonthsIncludingZero: TopPeriod[];
+  leastYearsIncludingZero: TopPeriod[];
+  leastDaysOfYearIncludingZero: TopPeriod[];
 }
 
 // Enum for Namespaces

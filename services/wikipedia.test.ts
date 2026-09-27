@@ -75,6 +75,105 @@ describe('processStatistics', () => {
         expect(totalHours).toBe(2);
     });
 
+    describe('productive period rankings', () => {
+        const atLocalDate = (year: number, month: number, day: number) =>
+            createContrib(new Date(year, month - 1, day, 12, 0, 0).toISOString());
+
+        const contribs = [
+            ...Array.from({ length: 2 }, () => atLocalDate(2022, 1, 1)),
+            atLocalDate(2023, 1, 1),
+            ...Array.from({ length: 4 }, () => atLocalDate(2023, 9, 20)),
+            atLocalDate(2023, 12, 10),
+        ];
+        const stats = processStatistics(mockUser, contribs, new Date(2024, 0, 1, 12));
+
+        it('ranks only active periods from least to most active', () => {
+            expect(stats.leastDays[0].count).toBe(1);
+            expect(stats.leastWeeks[0].count).toBeGreaterThan(0);
+            expect(stats.leastMonths[0].count).toBeGreaterThan(0);
+            expect(stats.leastYears[0].count).toBeGreaterThan(0);
+            expect(stats.leastDays.every(period => period.count > 0)).toBe(true);
+        });
+
+        it('totals each calendar date across all selected years', () => {
+            expect(stats.topDaysOfYear.map(({ label, count }) => ({ label, count }))).toEqual([
+                { label: 'Sep 20', count: 4 },
+                { label: 'Jan 01', count: 3 },
+                { label: 'Dec 10', count: 1 },
+            ]);
+            expect(stats.leastDaysOfYear[0]).toMatchObject({ label: 'Dec 10', count: 1 });
+        });
+
+        it('fills zero-edit periods across an explicit selected range', () => {
+            const rangeStats = processStatistics(
+                mockUser,
+                [atLocalDate(2022, 12, 31), atLocalDate(2024, 1, 2)],
+                new Date(2024, 0, 2, 12),
+                { startDate: '2022-12-31', endDate: '2024-01-02' }
+            );
+
+            expect(rangeStats.leastDays.every(period => period.count > 0)).toBe(true);
+            expect(rangeStats.leastDaysIncludingZero).toContainEqual(expect.objectContaining({ date: '2023-01-01', count: 0 }));
+            expect(rangeStats.leastWeeksIncludingZero.some(period => period.count === 0)).toBe(true);
+            expect(rangeStats.leastMonthsIncludingZero).toContainEqual(expect.objectContaining({ date: '2023-01-01', count: 0 }));
+            expect(rangeStats.leastYearsIncludingZero).toContainEqual(expect.objectContaining({ label: '2023', count: 0 }));
+            expect(rangeStats.leastDaysOfYearIncludingZero).toContainEqual(expect.objectContaining({ label: 'Jan 01', count: 0 }));
+        });
+
+        it('retains up to 500 ranked periods for the larger display limits', () => {
+            const start = new Date(2020, 0, 1, 12);
+            const longHistory = Array.from({ length: 600 }, (_, offset) => {
+                const date = new Date(start);
+                date.setDate(date.getDate() + offset);
+                return createContrib(date.toISOString());
+            });
+
+            const rangeStats = processStatistics(mockUser, longHistory, new Date(2021, 7, 22, 12));
+
+            expect(rangeStats.topDays).toHaveLength(500);
+            expect(rangeStats.leastDays).toHaveLength(500);
+        });
+    });
+
+    describe('page creations for recurring reference periods', () => {
+        const createdAt = (year: number, month: number, day: number) => ({
+            ...createContrib(new Date(year, month - 1, day, 12, 0, 0).toISOString()),
+            new: '',
+        });
+
+        it('totals creations for the reference calendar date, ISO week, and month across years', () => {
+            const stats = processStatistics(mockUser, [
+                createdAt(2022, 9, 21),
+                createdAt(2023, 9, 21),
+                createdAt(2024, 9, 16),
+                createdAt(2024, 9, 30),
+                createdAt(2024, 10, 1),
+                createContrib(new Date(2021, 8, 21, 12).toISOString()), // An edit, not a creation
+            ], new Date(2024, 8, 21, 12));
+
+            expect(stats.referenceIsoWeek).toBe(38);
+            expect(stats.editsOnReferenceDate).toBe(3);
+            expect(stats.editsInReferenceWeek).toBe(4);
+            expect(stats.editsInReferenceMonth).toBe(5);
+            expect(stats.createdOnReferenceDate).toBe(2);
+            expect(stats.createdInReferenceWeek).toBe(3);
+            expect(stats.createdInReferenceMonth).toBe(4);
+        });
+
+        it('handles ISO week 53 across calendar-year boundaries', () => {
+            const stats = processStatistics(mockUser, [
+                createdAt(2015, 12, 31),
+                createdAt(2020, 12, 28),
+                createdAt(2021, 1, 3),
+                createdAt(2021, 1, 4), // ISO week 1, so it must not count
+            ], new Date(2021, 0, 1, 12));
+
+            expect(stats.referenceIsoWeek).toBe(53);
+            expect(stats.editsInReferenceWeek).toBe(3);
+            expect(stats.createdInReferenceWeek).toBe(3);
+        });
+    });
+
     describe('hourly pace baselines', () => {
         const at = (y: number, m: number, d: number, h: number) =>
             createContrib(new Date(y, m - 1, d, h, 0, 0).toISOString());

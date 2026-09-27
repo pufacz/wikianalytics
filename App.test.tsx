@@ -28,11 +28,14 @@ vi.mock('./services/wikipedia', async (importOriginal) => ({
     fetchUserContributions: vi.fn(),
 }));
 
-describe('App: "From" date follows the selected editor', () => {
-    beforeEach(() => {
-        vi.mocked(fetchFirstEditDate).mockReset();
-    });
+beforeEach(() => {
+    vi.mocked(fetchFirstEditDate).mockReset();
+    vi.mocked(fetchWikiUser).mockReset();
+    vi.mocked(fetchUserContributions).mockReset();
+    vi.stubGlobal('confirm', vi.fn(() => true));
+});
 
+describe('App: "From" date follows the selected editor', () => {
     // Lets the mount effect that loads saved profiles settle inside act().
     const renderApp = async () => {
         render(<App />);
@@ -80,17 +83,64 @@ describe('App: "From" date follows the selected editor', () => {
         expect(fetchFirstEditDate).toHaveBeenCalledWith('Masti', 'pl');
     });
 
-    it('does not overwrite a date the user set by hand', async () => {
+    it('overwrites a previously entered date when the editor changes', async () => {
         vi.mocked(fetchFirstEditDate).mockResolvedValue('2003-09-11');
         await renderApp();
 
         typeUsername('Gdarin');
         fireEvent.change(fromInput(), { target: { value: '2015-06-01' } });
 
-        await act(async () => { await new Promise(resolve => setTimeout(resolve, 1200)); });
+        await waitFor(() => expect(fromInput().value).toBe('2003-09-11'), { timeout: 3000 });
 
-        expect(fromInput().value).toBe('2015-06-01');
-        expect(fetchFirstEditDate).not.toHaveBeenCalled();
+        expect(fetchFirstEditDate).toHaveBeenCalledWith('Gdarin', 'pl');
+    });
+});
+
+describe('App: approving a new editor load', () => {
+    it('shows the lifetime edit count and keeps the existing dashboard when declined', async () => {
+        const firstUser = {
+            userid: 1, name: 'FirstEditor', editcount: 1_234, registration: '2020-01-01T00:00:00Z', groups: [],
+        };
+        const secondUser = {
+            userid: 2, name: 'SecondEditor', editcount: 98_765, registration: '2021-01-01T00:00:00Z', groups: [],
+        };
+        const firstContrib: WikiContrib = {
+            userid: 1, user: 'FirstEditor', pageid: 1, revid: 1, parentid: 0, ns: 0,
+            title: 'Article', timestamp: '2024-01-02T12:00:00Z', comment: '', size: 100,
+        };
+
+        vi.mocked(fetchFirstEditDate).mockImplementation(async (name) =>
+            name === 'FirstEditor' ? '2020-01-02' : '2021-02-03'
+        );
+        vi.mocked(fetchWikiUser)
+            .mockResolvedValueOnce(firstUser)
+            .mockResolvedValueOnce(secondUser);
+        vi.mocked(fetchUserContributions).mockResolvedValue([firstContrib]);
+        vi.mocked(window.confirm)
+            .mockReturnValueOnce(true)
+            .mockReturnValueOnce(false);
+
+        render(<App />);
+        await act(async () => { await Promise.resolve(); });
+
+        const usernameInput = screen.getByPlaceholderText('Enter Username...');
+        fireEvent.change(usernameInput, { target: { value: 'FirstEditor' } });
+        await waitFor(() => expect(screen.getByLabelText('From')).toHaveValue('2020-01-02'), { timeout: 3000 });
+        fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
+
+        await screen.findByText('Namespace Distribution', {}, { timeout: 3000 });
+        expect(window.confirm).toHaveBeenNthCalledWith(1, expect.stringContaining(firstUser.editcount.toLocaleString()));
+        expect(fetchUserContributions).toHaveBeenCalledTimes(1);
+
+        fireEvent.change(usernameInput, { target: { value: 'SecondEditor' } });
+        await waitFor(() => expect(screen.getByLabelText('From')).toHaveValue('2021-02-03'), { timeout: 3000 });
+        fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
+
+        await waitFor(() => expect(window.confirm).toHaveBeenCalledTimes(2));
+        expect(window.confirm).toHaveBeenNthCalledWith(2, expect.stringContaining(secondUser.editcount.toLocaleString()));
+        expect(fetchUserContributions).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole('banner')).toHaveTextContent('FirstEditor');
+        expect(screen.getByText('Namespace Distribution')).toBeInTheDocument();
     });
 });
 
@@ -119,7 +169,10 @@ describe('App: every chart carries a description tooltip', () => {
         await act(async () => { await Promise.resolve(); });
 
         fireEvent.change(screen.getByPlaceholderText('Enter Username...'), { target: { value: 'Gdarin' } });
-        fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+        await waitFor(() => expect(screen.getByLabelText('From')).toHaveValue('2024-01-10'), { timeout: 3000 });
+        const analyzeButton = screen.getByRole('button', { name: /analyze/i });
+        await waitFor(() => expect(analyzeButton).toBeEnabled(), { timeout: 3000 });
+        fireEvent.click(analyzeButton);
 
         await screen.findByText('Namespace Distribution', {}, { timeout: 3000 });
     };
@@ -148,9 +201,33 @@ describe('App: every chart carries a description tooltip', () => {
         const month = heading.textContent!.replace('Activity in ', '').replace(' (Daily)', '');
         expect(screen.getByText(new RegExp(`Edits on each day of ${month},`))).toBeInTheDocument();
     });
+
+    it('renders both sets of recurring-period cards', async () => {
+        await renderDashboard();
+
+        expect(screen.getByText('All Edits by Reference Period')).toBeInTheDocument();
+        expect(screen.getByText(/^Edits on [A-Z][a-z]{2} \d{1,2}$/)).toBeInTheDocument();
+        expect(screen.getByText(/^Edits in ISO week \d+$/)).toBeInTheDocument();
+        expect(screen.getByText(/^Edits in [A-Za-z]+$/)).toBeInTheDocument();
+        expect(screen.getByText('Pages Created by Reference Period')).toBeInTheDocument();
+        expect(screen.getByText(/^Created on /)).toBeInTheDocument();
+        expect(screen.getByText(/^Created in ISO week \d+$/)).toBeInTheDocument();
+        expect(screen.getByText(/^Created in [A-Za-z]+$/)).toBeInTheDocument();
+    });
+
+    it('refreshes the loaded Wikipedia data with Ctrl+R', async () => {
+        await renderDashboard();
+        const fetchContributions = vi.mocked(fetchUserContributions);
+        fetchContributions.mockClear();
+
+        const browserDefaultAllowed = fireEvent.keyDown(window, { key: 'r', ctrlKey: true });
+
+        expect(browserDefaultAllowed).toBe(false);
+        await waitFor(() => expect(fetchContributions).toHaveBeenCalledTimes(1));
+    });
 });
 
-describe('App: browsing the reference date with arrow keys', () => {
+describe('App: browsing the reference date with keyboard shortcuts', () => {
     const renderApp = async () => {
         render(<App />);
         await act(async () => { await Promise.resolve(); });
@@ -171,6 +248,17 @@ describe('App: browsing the reference date with arrow keys', () => {
 
         fireEvent.keyDown(window, { key: 'ArrowRight' });
         await waitFor(() => expect(refDateInput().value).toBe(before));
+    });
+
+    it('returns to the local current date when Home is pressed', async () => {
+        await renderApp();
+        fireEvent.change(refDateInput(), { target: { value: '2020-01-15' } });
+
+        fireEvent.keyDown(window, { key: 'Home' });
+
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        await waitFor(() => expect(refDateInput().value).toBe(today));
     });
 
     it('does not steal arrow keys while typing in another field', async () => {
@@ -225,7 +313,10 @@ describe('App: the sticky header shows the day under analysis', () => {
 
         fireEvent.change(screen.getByPlaceholderText('Enter Username...'), { target: { value: 'Gdarin' } });
         fireEvent.change(screen.getByLabelText('Analysis Ref Date'), { target: { value: '2024-03-14' } });
-        fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+        await waitFor(() => expect(screen.getByLabelText('From')).toHaveValue('2024-03-01'), { timeout: 3000 });
+        const analyzeButton = screen.getByRole('button', { name: /analyze/i });
+        await waitFor(() => expect(analyzeButton).toBeEnabled(), { timeout: 3000 });
+        fireEvent.click(analyzeButton);
 
         await screen.findByText('Namespace Distribution', {}, { timeout: 3000 });
     };
